@@ -306,6 +306,60 @@ def authenticate_linux_user(username, password):
 
 # ─── SETTINGS ───
 
+# Default display palette. Kept at module level so the auto-palette resolver
+# can merge user overrides on top of it without re-reading settings.json.
+_DEFAULT_COLORS = {
+    "live": "#00E676",
+    "final": "#FF1744",
+    "flash": "#FFD600",
+    "team_abbr": "#ffffff",
+    "league_label": "#099afc",
+    "ticker_base": "#ffffff",
+    "winner": "#00E676",
+    "loser": "#FF1744",
+    "tie_score": "#FFD600",
+    "fav_abbr": "#F5A800",
+    "fav_score": "#F5A800",
+    "nascar_num": "#FFD600",
+    "weather": "#dddddd",
+    "vs_color": "#ffffff",
+    "pre_time": "#ffffff",
+    "score_sep": "#888888",
+    "ticker_live": "#00E676",
+    "ticker_final": "#FF1744",
+    "ticker_sep": "#444444",
+    "race_pos": "#F5A800",
+    "race_laps": "#888888",
+    "card_subtext": "#555555",
+    # dark mode surface colors
+    "dark_bg": "#080808",
+    "dark_card": "#111111",
+    "dark_border": "#2a2a2a",
+    "dark_vs": "#ffffff",
+    "dark_ticker_bg": "#000000",
+    # light mode surface colors
+    "light_bg": "#c4d6f0",
+    "light_card": "#ffffff",
+    "light_border": "#ffffff",
+    "light_vs": "#445566",
+    # previously-hardcoded elements (now configurable)
+    "header_bg_dark": "#080808",
+    "header_bg_light": "#eef2f8",
+    "header_border": "#2a2a2a",
+    "card_border": "#ffffff",
+    "logo_glow": "#ffffff",
+    "ticker_border": "#099afc",
+    "ticker_border_cycle": True,
+    "final_badge_text": "#ffffff",
+    "rss_label": "#ffffff",
+    "rss_event": "#ffffff",
+    "rss_subevent": "#888888",
+    "special_text": "#cccccc",
+    "golf_pos": "#F5A800",
+    "race_event": "#666666",
+}
+
+
 def get_settings():
     default = {
         "city": "Auburn, NE",
@@ -327,41 +381,12 @@ def get_settings():
         "golf_favorites": [],
         "cast_orientation": "auto",
         "theme": "dark",
-        "colors": {
-            "live": "#00E676",
-            "final": "#FF1744",
-            "flash": "#FFD600",
-            "team_abbr": "#ffffff",
-            "league_label": "#099afc",
-            "ticker_base": "#ffffff",
-            "winner": "#00E676",
-            "loser": "#FF1744",
-            "tie_score": "#FFD600",
-            "fav_abbr": "#F5A800",
-            "fav_score": "#F5A800",
-            "nascar_num": "#FFD600",
-            "weather": "#dddddd",
-            "vs_color": "#ffffff",
-            "pre_time": "#ffffff",
-            "score_sep": "#888888",
-            "ticker_live": "#00E676",
-            "ticker_final": "#FF1744",
-            "ticker_sep": "#444444",
-            "race_pos": "#F5A800",
-            "race_laps": "#888888",
-            "card_subtext": "#555555",
-            # dark mode surface colors
-            "dark_bg":      "#080808",
-            "dark_card":    "#111111",
-            "dark_border":  "#2a2a2a",
-            "dark_vs":      "#ffffff",
-            "dark_ticker_bg": "#000000",
-            # light mode surface colors
-            "light_bg":     "#c4d6f0",
-            "light_card":   "#ffffff",
-            "light_border": "#ffffff",
-            "light_vs":     "#445566",
-        },
+        # "auto" derives the whole palette from the favorite team's colors;
+        # "manual" uses the explicit colors below.
+        "color_mode": "auto",
+        # Which team drives the auto palette. Blank = first favorite in "teams".
+        "palette_team": "",
+        "colors": dict(_DEFAULT_COLORS),
         "font_primary": "Barlow Condensed",
         # Default to kiosk mode if kiosk.json is present (placed by install.sh in kiosk mode)
         "device_mode": "kiosk" if os.path.exists(KIOSK_CONFIG_FILE) else "server",
@@ -378,6 +403,14 @@ def get_settings():
         "slide_transition": "slide-right",
         "ticker_speed": 120,
         "date_windows": {},
+        # Local sports: manual games + parsed feeds (RSS/iCal/MaxPreps/Thrillshare).
+        # home_team_keywords identifies YOUR team in a parsed event string so the
+        # app can split "@" / "at" / "vs" matchups and highlight the right side.
+        "local_schedule": {
+            "items": [],
+            "rss_feeds": [],
+            "home_team_keywords": [],
+        },
     }
     if not os.path.exists(SETTINGS_FILE):
         return default
@@ -386,7 +419,7 @@ def get_settings():
             loaded = json.load(f)
         merged = {**default, **loaded}
         # Deep merge nested dicts so missing sub-keys fall back to defaults
-        for key in ('update', 'colors', 'schedule', 'date_windows'):
+        for key in ('update', 'colors', 'schedule', 'date_windows', 'local_schedule'):
             if key in default and isinstance(default[key], dict):
                 merged[key] = {**default[key], **loaded.get(key, {})}
         return merged
@@ -407,7 +440,7 @@ def save_settings(data):
             pass
     merged = {**existing, **data}
     # Deep-merge nested dicts — incoming data wins for any key it provides
-    for key in ('update', 'colors', 'schedule', 'date_windows'):
+    for key in ('update', 'colors', 'schedule', 'date_windows', 'local_schedule'):
         if isinstance(existing.get(key), dict) and isinstance(data.get(key), dict):
             merged[key] = {**existing[key], **data[key]}
     merged['last_saved'] = datetime.now(timezone.utc).isoformat()
@@ -846,6 +879,7 @@ def _split_record(team):
 def _build_local_schedule_items(settings, tz_str):
     items = []
     ls = settings.get('local_schedule', {})
+    global_keywords = _home_keywords(settings)
     for entry in ls.get('items', []):
         if not entry.get('enabled', True):
             continue
@@ -867,6 +901,8 @@ def _build_local_schedule_items(settings, tz_str):
             'home_team': home_team,
             'away_record': away_record,
             'home_record': home_record,
+            'away_is_fav': _matches_keywords(away_team, global_keywords),
+            'home_is_fav': _matches_keywords(home_team, global_keywords),
             'date': date_raw,
             'time': time_raw,
             'location': entry.get('location', ''),
@@ -886,6 +922,7 @@ def _build_local_schedule_items(settings, tz_str):
         rss_tag = (feed.get('category', '') or '').strip().upper()
         if not rss_url:
             continue
+        feed_keywords = _home_keywords(settings, feed) or global_keywords
         pre_count = len(items)
         try:
             resolved_url, feed_type = _resolve_feed(rss_url)
@@ -903,11 +940,241 @@ def _build_local_schedule_items(settings, tz_str):
             print(f"[schedule] Feed error ({rss_label}): {e}")
         for item in items[pre_count:]:
             item['tag'] = rss_tag
+            _apply_matchup_split(item, feed_keywords)
     return items
 
 
 import re
 from urllib.parse import urlparse as _urlparse, urljoin as _urljoin
+
+
+# ─── AUTO PALETTE (derive the whole look from the favorite team) ───
+
+def _hex_to_rgb(h):
+    h = (h or '').strip().lstrip('#')
+    if len(h) == 3:
+        h = ''.join(c * 2 for c in h)
+    if len(h) != 6:
+        return None
+    try:
+        return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+    except ValueError:
+        return None
+
+
+def _rgb_to_hex(rgb):
+    return '#%02X%02X%02X' % tuple(max(0, min(255, int(round(c)))) for c in rgb)
+
+
+def _mix(c1, c2, t):
+    """Linear blend: t=0 -> c1, t=1 -> c2. Falls back to c1 on bad input."""
+    a, b = _hex_to_rgb(c1), _hex_to_rgb(c2)
+    if not a or not b:
+        return c1
+    return _rgb_to_hex([a[i] + (b[i] - a[i]) * t for i in range(3)])
+
+
+def _luminance(c):
+    rgb = _hex_to_rgb(c)
+    if not rgb:
+        return 0.0
+    def _ch(v):
+        v /= 255.0
+        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+    r, g, b = (_ch(x) for x in rgb)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+_team_color_cache = {}  # league_path -> {ABBR: (color, alternateColor)}
+
+
+def _team_colors_for_league(path):
+    with _cache_lock:
+        if path in _team_color_cache:
+            return _team_color_cache[path]
+    sport, league = ESPN_API_PATHS.get(path, (path.split('/')[0], path.split('/')[-1]))
+    out = {}
+    try:
+        url = f"https://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/teams?limit=1000"
+        res = requests.get(url, timeout=8)
+        if res.ok:
+            data = res.json()
+            leagues = (data.get('sports') or [{}])[0].get('leagues') or [{}]
+            for t in (leagues[0].get('teams') or []):
+                team = t.get('team', {}) if isinstance(t, dict) else {}
+                abbr = (team.get('abbreviation') or '').upper()
+                if abbr:
+                    out[abbr] = (team.get('color', ''), team.get('alternateColor', ''))
+    except Exception as e:
+        print(f"[palette] team colors {path}: {e}")
+    with _cache_lock:
+        _team_color_cache[path] = out
+    return out
+
+
+def _fav_team_key(settings):
+    """Return the 'league_path:ABBR' that should drive the auto palette."""
+    chosen = (settings.get('palette_team') or '').strip()
+    if chosen and ':' in chosen:
+        return chosen
+    for t in (settings.get('teams') or []):
+        if isinstance(t, str) and ':' in t:
+            return t
+    return ''
+
+
+def _team_palette_colors(key):
+    """Return (primary, alternate) hex colors for a 'path:ABBR' key, or None."""
+    if not key or ':' not in key:
+        return None
+    path, abbr = key.rsplit(':', 1)
+    entry = _team_colors_for_league(path).get(abbr.upper())
+    if not entry:
+        return None
+    primary = entry[0] if _hex_to_rgb(entry[0]) else ''
+    alternate = entry[1] if _hex_to_rgb(entry[1]) else ''
+    if not primary and not alternate:
+        return None
+    return (primary or alternate, alternate or primary)
+
+
+def _auto_palette(primary, alternate, theme):
+    """Derive a full colors dict (surfaces + accents) from two team colors.
+
+    Surfaces and accents are tinted from the team colors; semantic state
+    colors (live/final/flash/winner/loser) are intentionally left alone so a
+    live score still reads as green and a final as red.
+    """
+    p = primary if _hex_to_rgb(primary) else '#F5A800'
+    a = alternate if _hex_to_rgb(alternate) else p
+    # Keep the accents bright enough to read on a dark surface.
+    accent = p if _luminance(p) > 0.14 else _mix(p, '#FFFFFF', 0.28)
+    accent2 = a if _luminance(a) > 0.14 else _mix(a, '#FFFFFF', 0.28)
+    header_color = _mix(p, '#000000', 0.4) if theme == 'light' else accent
+    return {
+        'dark_bg':         _mix(p, '#000000', 0.90),
+        'dark_card':       _mix(p, '#000000', 0.82),
+        'dark_border':     _mix(p, '#000000', 0.55),
+        'dark_vs':         '#FFFFFF',
+        'dark_ticker_bg':  _mix(p, '#000000', 0.94),
+        'header_bg_dark':  _mix(p, '#000000', 0.86),
+        'light_bg':        _mix(p, '#FFFFFF', 0.86),
+        'light_card':      '#FFFFFF',
+        'light_border':    _mix(p, '#FFFFFF', 0.70),
+        'light_vs':        _mix(p, '#000000', 0.35),
+        'header_bg_light': _mix(p, '#FFFFFF', 0.88),
+        'header_border':   _mix(p, '#000000', 0.55),
+        'card_border':     _mix(p, '#000000', 0.55),
+        'logo_glow':       accent,
+        'ticker_border':   accent,
+        'league_label':    accent,
+        'fav_abbr':        accent2,
+        'fav_score':       accent2,
+        'nascar_num':      accent2,
+        'race_pos':        accent,
+        'golf_pos':        accent,
+        '_header_color':   header_color,
+    }
+
+
+def resolve_palette(settings):
+    """Return (colors, header_color) for a settings dict.
+
+    In auto mode the favorite team's ESPN colors override the surfaces and
+    accents; manual mode returns exactly what the user configured.
+    """
+    base = dict(_DEFAULT_COLORS)
+    base.update(settings.get('colors') or {})
+    header = settings.get('header_color', '#F5A800')
+    if (settings.get('color_mode') or 'auto') == 'auto':
+        tc = _team_palette_colors(_fav_team_key(settings))
+        if tc:
+            palette = _auto_palette(tc[0], tc[1], settings.get('theme', 'dark'))
+            header = palette.pop('_header_color', header)
+            base.update(palette)
+    return base, header
+
+
+# ─── LOCAL SCHEDULE MATCHUP SPLITTING ───
+
+def _split_matchup(text):
+    """Split a local-event string into away/home teams.
+
+    "TeamA @ TeamB" and "TeamA at TeamB" -> TeamA away, TeamB home.
+    "TeamA vs TeamB" -> TeamA home, TeamB away (school schedules list the
+    host school first). Returns None when the string is not a two-team
+    matchup, e.g. "Team @ Home".
+    """
+    t = (text or '').strip()
+    if not t:
+        return None
+    nonteams = {'home', 'away', 'neutral', 'tba', 'tbd', 'n/a', 'na', 'site'}
+    patterns = (
+        (r'\s+@\s+', False, 'at'),
+        (r'\s+at\s+', False, 'at'),
+        (r'\s+vs\.?\s+', True, 'vs'),
+        (r'\s+v\.?\s+', True, 'vs'),
+    )
+    for pat, left_is_home, delim in patterns:
+        parts = re.split(pat, t, maxsplit=1, flags=re.I)
+        if len(parts) != 2:
+            continue
+        left = parts[0].strip(' -\u2013\u2014')
+        right = parts[1].strip(' -\u2013\u2014')
+        if not left or not right:
+            continue
+        if left.lower() in nonteams or right.lower() in nonteams:
+            return None
+        if left_is_home:
+            return {'away': right, 'home': left, 'delim': delim}
+        return {'away': left, 'home': right, 'delim': delim}
+    return None
+
+
+def _home_keywords(settings, feed=None):
+    """Collect the user's home/favorite-team keywords (global + per-feed)."""
+    ls = settings.get('local_schedule', {}) or {}
+    kws = list(ls.get('home_team_keywords') or [])
+    if feed:
+        kws += list(feed.get('keywords') or [])
+    return [str(k).strip().lower() for k in kws if str(k).strip()]
+
+
+def _matches_keywords(name, keywords):
+    nl = (name or '').lower()
+    return any(kw in nl for kw in keywords)
+
+
+def _apply_matchup_split(item, keywords):
+    """Turn a free-text local event ("A vs B", "A @ B") into two sides.
+
+    Marks which side is the user's team with *keys; for the ambiguous "vs"
+    delimiter the user's team is placed on the home side so it renders like
+    the ESPN game cards.
+    """
+    if item.get('type') != 'rss':
+        return
+    split = _split_matchup(item.get('title', ''))
+    if not split:
+        return
+    away_team, away_record = _split_record(split['away'])
+    home_team, home_record = _split_record(split['home'])
+    away_is_fav = _matches_keywords(away_team, keywords)
+    home_is_fav = _matches_keywords(home_team, keywords)
+    if split.get('delim') == 'vs' and away_is_fav != home_is_fav and away_is_fav:
+        away_team, home_team = home_team, away_team
+        away_record, home_record = home_record, away_record
+        away_is_fav, home_is_fav = home_is_fav, away_is_fav
+    item.update({
+        'away_team': away_team,
+        'home_team': home_team,
+        'away_record': away_record,
+        'home_record': home_record,
+        'away_is_fav': away_is_fav,
+        'home_is_fav': home_is_fav,
+        'is_matchup': True,
+    })
+
 
 def _resolve_feed(url):
     """Return (resolved_url, feed_type) where feed_type is 'rss', 'ical', 'thrillshare', 'maxpreps', or None."""
@@ -1527,9 +1794,11 @@ def _build_data_response(active_leagues, active_teams, active_lc, tz_str, settin
         if s.get('enabled') and (s.get('title') or s.get('image')) and _special_active_today(s, tz_str)
     ]
 
+    colors, header_color = resolve_palette(settings)
+
     return {
         "display_name": settings.get('display_name', 'SCOREBOARD'),
-        "header_color": settings.get('header_color', '#F5A800'),
+        "header_color": header_color,
         "weather": get_weather(settings.get('city', '')),
         "teams": fav_cards,
         "races": race_cards,
@@ -1539,7 +1808,9 @@ def _build_data_response(active_leagues, active_teams, active_lc, tz_str, settin
         "local_schedule_items": _build_local_schedule_items(settings, tz_str),
         "cast_orientation": settings.get('cast_orientation', 'auto'),
         "theme": settings.get('theme', 'dark'),
-        "colors": settings.get('colors', {}),
+        "colors": colors,
+        "color_mode": settings.get('color_mode', 'auto'),
+        "palette_team": settings.get('palette_team', ''),
         "font_primary": settings.get('font_primary', 'Barlow Condensed'),
         "slide_playlist": settings.get('slide_playlist', []),
         "slide_duration": settings.get('slide_duration', 8),
@@ -1737,11 +2008,14 @@ def data_api():
                 if r.ok:
                     data = r.json()
                     # Override server's display settings with this kiosk's own preferences
+                    kiosk_colors, kiosk_header = resolve_palette(settings)
                     data['display_name']     = settings.get('display_name', data.get('display_name', 'SCOREBOARD'))
-                    data['header_color']     = settings.get('header_color', data.get('header_color', '#F5A800'))
+                    data['header_color']     = kiosk_header
                     data['cast_orientation'] = settings.get('cast_orientation', data.get('cast_orientation', 'auto'))
                     data['theme']            = settings.get('theme', data.get('theme', 'dark'))
-                    data['colors']           = settings.get('colors', data.get('colors', {}))
+                    data['colors']           = kiosk_colors
+                    data['color_mode']       = settings.get('color_mode', data.get('color_mode', 'auto'))
+                    data['palette_team']     = settings.get('palette_team', data.get('palette_team', ''))
                     data['font_primary']     = settings.get('font_primary', data.get('font_primary', 'Barlow Condensed'))
                     data['specials']         = [
                         s for s in settings.get('specials', [])

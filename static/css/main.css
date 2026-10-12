@@ -44,6 +44,20 @@
     --light-bg:     #c4d6f0;
     --light-card:   #ffffff;
     --light-border: #ffffff;
+    /* Previously-hardcoded elements — overridden by JS from /api/data */
+    --header-bg-dark:      #080808;
+    --header-bg-light:     #eef2f8;
+    --header-border-color: #2a2a2a;
+    --card-border-color:   #ffffff;
+    --logo-glow-color:     #ffffff;
+    --ticker-border-color: #099afc;
+    --final-badge-text:    #ffffff;
+    --rss-label-color:     #ffffff;
+    --rss-event-color:     #ffffff;
+    --rss-subevent-color:  #888888;
+    --special-text-color:  #cccccc;
+    --golf-pos-color:      #F5A800;
+    --race-event-color:    #666666;
     --font-primary: 'Barlow Condensed', sans-serif;
     --ui-scale: 1;
     --ui-bar-height: 10vh;
@@ -452,6 +466,16 @@ body.pg-settings.light .color-item input[type=color] { background: rgba(255,255,
 .theme-btn[data-val="dark"]:hover   { border-color: var(--accent); }
 .theme-btn[data-val="light"]:hover  { border-color: var(--accent-dark); }
 
+.cmode-btn {
+    padding: 12px 24px; border-radius: 10px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px; font-weight: 900; letter-spacing: 1px;
+    cursor: pointer; transition: 0.2s;
+    background: #1a1a1a; color: #888; border: 3px solid #333;
+}
+.cmode-btn:hover { border-color: var(--accent); color: #ccc; }
+.cmode-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); box-shadow: 0 0 0 2px var(--accent); }
+
 /* Kiosk list */
 .kiosk-row {
     background: #0a0a0a; border: 1px solid #222; border-radius: 8px;
@@ -568,7 +592,8 @@ body.pg-index header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: max(1px, calc(3 * var(--px))) solid var(--border);
+    background: var(--header-bg-dark);
+    border-bottom: max(1px, calc(3 * var(--px))) solid var(--header-border-color);
     flex-shrink: 0;
     box-sizing: border-box;
     position: relative;
@@ -697,7 +722,7 @@ body.transition-fade .slide.slide-exiting  { animation: fadeOut 0.4s ease both; 
 }
 .card.live  { border: max(1px, calc(6 * var(--px))) solid var(--green); }
 .card.final { border: max(1px, calc(6 * var(--px))) solid var(--red); }
-.card.pre   { border-color: white; }
+.card.pre   { border-color: var(--card-border-color); }
 .card.flash { border-color: var(--flash-color); }
 
 .league-tag {
@@ -834,9 +859,9 @@ body.pg-index.light .team-logo {
     height: 65vh;
     object-fit: contain;
     filter:
-        drop-shadow(2px 2px 0px rgba(255, 255, 255, 0.9))
-        drop-shadow(-2px -2px 0px rgba(255, 255, 255, 0.9))
-        drop-shadow(0 0 25px rgba(255, 255, 255, 0.4))
+        drop-shadow(2px 2px 0px var(--logo-glow-color))
+        drop-shadow(-2px -2px 0px var(--logo-glow-color))
+        drop-shadow(0 0 25px var(--logo-glow-color))
         brightness(1.1);
     animation: logoPulse 8s ease-in-out infinite;
 }
@@ -848,7 +873,7 @@ body.pg-index footer {
     background: var(--ticker-bg);
     display: flex;
     align-items: center;
-    border-top: max(1px, calc(3 * var(--px))) solid var(--border);
+    border-top: max(1px, calc(3 * var(--px))) solid var(--ticker-border-color);
     width: 100%;
     overflow: hidden;
     flex-shrink: 0;
@@ -905,7 +930,7 @@ body.pg-index footer {
     top: 2vh;
     right: 2vw;
     background: var(--red);
-    color: white;
+    color: var(--final-badge-text);
     font-size: 3vh;
     font-weight: 900;
     padding: 0.5vh 1.5vw;
@@ -933,7 +958,7 @@ body.pg-index footer {
 .special-body {
     font-size: 4.5vw;
     font-weight: 700;
-    color: #ccc;
+    color: var(--special-text-color);
     letter-spacing: calc(2 * var(--px));
     text-transform: uppercase;
 }
@@ -941,8 +966,8 @@ body.pg-index footer {
 
 /* ─── LIGHT THEME ─── */
 @keyframes logoPulse {
-    0%, 100% { transform: scale(1); filter: brightness(1.1) drop-shadow(0 0 25px rgba(255,255,255,0.4)); }
-    50%       { transform: scale(1.02); filter: brightness(1.2) drop-shadow(0 0 40px rgba(255,255,255,0.6)); }
+    0%, 100% { transform: scale(1); filter: brightness(1.1) drop-shadow(0 0 25px var(--logo-glow-color)); }
+    50%       { transform: scale(1.02); filter: brightness(1.2) drop-shadow(0 0 40px var(--logo-glow-color)); }
 }
 @keyframes teamLogoBreathe {
     0%, 100% { transform: scale(1); }
@@ -961,10 +986,10 @@ body.pg-index.light {
     color: #111;
 }
 body.pg-index.light header {
-    background: color-mix(in srgb, var(--light-card) 78%, transparent);
+    background: var(--header-bg-light);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
-    border-bottom-color: color-mix(in srgb, var(--light-border) 50%, transparent);
+    border-bottom-color: var(--header-border-color);
 }
 body.pg-index.light footer {
     background: color-mix(in srgb, var(--light-card) 55%, transparent);
@@ -1199,7 +1224,7 @@ body.pg-index.vertical .v-event-time.pre   { color: #ccc; }
 .rss-label {
     font-size:      clamp(calc(16 * var(--px)), 8vw, calc(72 * var(--px)));
     font-weight:    900;
-    color:          white;
+    color:          var(--rss-label-color);
     text-transform: uppercase;
     text-align:     center;
     line-height:    1.1;
@@ -1218,14 +1243,14 @@ body.pg-index.vertical .v-event-time.pre   { color: #ccc; }
     font-weight:    900;
     line-height:    1.05;
     text-transform: uppercase;
-    color:          white;
+    color:          var(--rss-event-color);
     word-break:     break-word;
     letter-spacing: calc(1 * var(--px));
 }
 .rss-subevent {
     font-size:      clamp(calc(13 * var(--px)), 2.8vw, calc(28 * var(--px)));
     font-weight:    700;
-    color:          #888;
+    color:          var(--rss-subevent-color);
     letter-spacing: calc(1 * var(--px));
     text-transform: uppercase;
     margin-top:     1vh;
@@ -1350,7 +1375,7 @@ body.pg-index.phone.vertical .race-event-name { font-size: clamp(10px, 2.5dvh, 2
 .race-event-name {
     font-size: clamp(calc(10 * var(--px)), 2.4vw, calc(28 * var(--px)));
     font-weight: 700;
-    color: #666;
+    color: var(--race-event-color);
     text-align: center;
     text-transform: uppercase;
     line-height: 1.3;
@@ -1360,7 +1385,7 @@ body.pg-index.phone.vertical .race-event-name { font-size: clamp(10px, 2.5dvh, 2
 .golf-pos {
     font-size: clamp(calc(24 * var(--px)), 7vw, calc(90 * var(--px)));
     font-weight: 900;
-    color: var(--gold);
+    color: var(--golf-pos-color);
 }
 
 .race-leaderboard {

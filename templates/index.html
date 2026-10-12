@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Gameday Scoreboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;900&family=Barlow:wght@400;600&display=swap" rel="stylesheet">
+    <link id="font-link" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;900&family=Barlow:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/main.css">
 </head>
 <body class="pg-index">
@@ -103,7 +103,7 @@
         }, 5 * 60 * 1000);
 
 
-        // ─── TICKER BORDER: distinct color every 2 min for burn-in prevention (10 min full cycle) ───
+        // ─── TICKER BORDER: static configured color, or a burn-in cycle ───
         const TICKER_COLORS = [
             '#099afc', // blue
             '#FFD600', // yellow
@@ -112,16 +112,39 @@
             '#E040FB', // purple
         ];
         let tickerColorIndex = 0;
+        let tickerCycleTimer = null;
 
-
-        function nextTickerColor() {
+        function cycleTickerColor() {
             tickerColorIndex = (tickerColorIndex + 1) % TICKER_COLORS.length;
             document.getElementById('main-footer').style.borderTopColor = TICKER_COLORS[tickerColorIndex];
         }
 
+        function applyTickerBorder(colors) {
+            const footer = document.getElementById('main-footer');
+            const base = (colors && colors.ticker_border) || '#099afc';
+            TICKER_COLORS[0] = base;
+            if (colors && colors.ticker_border_cycle === false) {
+                if (tickerCycleTimer) { clearInterval(tickerCycleTimer); tickerCycleTimer = null; }
+                footer.style.borderTopColor = base;
+                return;
+            }
+            if (!tickerCycleTimer) {
+                tickerColorIndex = 0;
+                footer.style.borderTopColor = base;
+                tickerCycleTimer = setInterval(cycleTickerColor, 175 * 1000);
+            }
+        }
 
-        document.getElementById('main-footer').style.borderTopColor = TICKER_COLORS[tickerColorIndex];
-        setInterval(nextTickerColor, 175 * 1000);
+
+        // Load whichever Google Font the user picked (Barlow is always loaded as fallback).
+        let _loadedFont = '';
+        function applyFontLink(name) {
+            if (!name || name === _loadedFont) return;
+            _loadedFont = name;
+            const family = name.trim().replace(/\s+/g, '+');
+            const url = `https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;900&family=Barlow:wght@400;600&family=${family}:wght@400;700;900&display=swap`;
+            document.getElementById('font-link').href = url;
+        }
 
 
         // ─── DATA ───
@@ -262,6 +285,29 @@
                 root.style.setProperty('--light-bg',     colors.light_bg        || '#c4d6f0');
                 root.style.setProperty('--light-card',   colors.light_card      || '#ffffff');
                 root.style.setProperty('--light-border', colors.light_border    || '#ffffff');
+
+                // Previously-hardcoded elements (now user-configurable)
+                root.style.setProperty('--header-bg-dark',      colors.header_bg_dark   || '#080808');
+                root.style.setProperty('--header-bg-light',     colors.header_bg_light  || '#eef2f8');
+                root.style.setProperty('--header-border-color', colors.header_border    || '#2a2a2a');
+                root.style.setProperty('--card-border-color',   colors.card_border      || '#ffffff');
+                root.style.setProperty('--logo-glow-color',     colors.logo_glow        || '#ffffff');
+                root.style.setProperty('--ticker-border-color', colors.ticker_border    || '#099afc');
+                root.style.setProperty('--final-badge-text',    colors.final_badge_text || '#ffffff');
+                root.style.setProperty('--rss-label-color',     colors.rss_label        || '#ffffff');
+                root.style.setProperty('--rss-event-color',     colors.rss_event        || '#ffffff');
+                root.style.setProperty('--rss-subevent-color',  colors.rss_subevent     || '#888888');
+                root.style.setProperty('--special-text-color',  colors.special_text     || '#cccccc');
+                root.style.setProperty('--golf-pos-color',      colors.golf_pos         || '#F5A800');
+                root.style.setProperty('--race-event-color',    colors.race_event       || '#666666');
+
+                // Font family (applied live so a font change needs no reload)
+                const fontPrimary = data.font_primary || 'Barlow Condensed';
+                root.style.setProperty('--font-primary', `'${fontPrimary}', sans-serif`);
+                applyFontLink(fontPrimary);
+
+                // Ticker top border: static configured color, or burn-in cycle
+                applyTickerBorder(colors);
 
                 // Header
                 document.getElementById('display-name').innerText = data.display_name;
@@ -509,9 +555,9 @@
                                 <div class="league-tag">${sp.label}</div>
                                 ${dt ? `<div class="status-bar pre">${dt}</div>` : ''}
                                 <div class="teams-grid">
-                                    <div class="team-block away"><span class="team-abbr">${sp.away_team}</span>${sp.away_record ? `<span class="team-record">${sp.away_record}</span>` : ''}</div>
+                                    <div class="team-block away"><span class="team-abbr${sp.away_is_fav ? ' fav-team-abbr' : ''}">${sp.away_team}</span>${sp.away_record ? `<span class="team-record">${sp.away_record}</span>` : ''}</div>
                                     <div class="center-col"><div class="score-display pre vs-label">VS</div></div>
-                                    <div class="team-block home"><span class="team-abbr">${sp.home_team}</span>${sp.home_record ? `<span class="team-record">${sp.home_record}</span>` : ''}</div>
+                                    <div class="team-block home"><span class="team-abbr${sp.home_is_fav ? ' fav-team-abbr' : ''}">${sp.home_team}</span>${sp.home_record ? `<span class="team-record">${sp.home_record}</span>` : ''}</div>
                                 </div>
                                 <div class="v-event">
                                     <span class="v-event-league">${sp.label}</span>
@@ -521,19 +567,37 @@
                     } else if (sp.type === 'rss') {
                         const dt = [sp.date, sp.time].filter(Boolean).join('  ·  ');
                         const logoHtml = sp.logo ? `<img src="${sp.logo}">` : '';
-                        specialEl.innerHTML = `
-                            <div class="card pre rss-card">
-                                <div class="league-tag">${sp.tag || 'CUSTOM'}</div>
-                                ${dt ? `<div class="status-bar pre">${dt}</div>` : ''}
-                                <div class="rss-body">
-                                    <div class="rss-logo-col">${logoHtml}<div class="rss-label">${sp.label}</div></div>
+                        if (sp.is_matchup) {
+                            specialEl.innerHTML = `
+                                <div class="card pre rss-card rss-matchup">
+                                    <div class="league-tag">${sp.tag || 'CUSTOM'}</div>
+                                    ${dt ? `<div class="status-bar pre">${dt}</div>` : ''}
+                                    <div class="teams-grid">
+                                        <div class="team-block away"><span class="team-abbr${sp.away_is_fav ? ' fav-team-abbr' : ''}">${sp.away_team}</span>${sp.away_record ? `<span class="team-record">${sp.away_record}</span>` : ''}</div>
+                                        <div class="center-col"><div class="score-display pre vs-label">VS</div></div>
+                                        <div class="team-block home"><span class="team-abbr${sp.home_is_fav ? ' fav-team-abbr' : ''}">${sp.home_team}</span>${sp.home_record ? `<span class="team-record">${sp.home_record}</span>` : ''}</div>
+                                    </div>
                                     <div class="rss-text-col">
                                         <div class="rss-event">${sp.title}</div>
                                         ${sp.body ? `<div class="rss-subevent">${sp.body}</div>` : ''}
                                     </div>
-                                </div>
-                                ${dt ? `<div class="v-event"><span class="v-event-time pre">${dt}</span></div>` : ''}
-                            </div>`;
+                                    ${dt ? `<div class="v-event"><span class="v-event-time pre">${dt}</span></div>` : ''}
+                                </div>`;
+                        } else {
+                            specialEl.innerHTML = `
+                                <div class="card pre rss-card">
+                                    <div class="league-tag">${sp.tag || 'CUSTOM'}</div>
+                                    ${dt ? `<div class="status-bar pre">${dt}</div>` : ''}
+                                    <div class="rss-body">
+                                        <div class="rss-logo-col">${logoHtml}<div class="rss-label">${sp.label}</div></div>
+                                        <div class="rss-text-col">
+                                            <div class="rss-event">${sp.title}</div>
+                                            ${sp.body ? `<div class="rss-subevent">${sp.body}</div>` : ''}
+                                        </div>
+                                    </div>
+                                    ${dt ? `<div class="v-event"><span class="v-event-time pre">${dt}</span></div>` : ''}
+                                </div>`;
+                        }
                     } else if (sp.type === 'image' && sp.image) {
                         specialEl.innerHTML = `
                             <div class="card special-card" style="border-color:${color};padding:0;overflow:hidden;">
@@ -661,11 +725,19 @@
                 }
                 (data.local_schedule_items || []).filter(i => i.type === 'schedule' && isToday(i.event_iso)).forEach(item => {
                     const dt = [item.date, item.time].filter(Boolean).join('   ');
-                    tickerHtml += `<span class="tick-item"><span class="tick-label">${item.label}</span>${item.away_team} @ ${item.home_team}${dt ? ' | ' + dt : ''}</span><span class="tick-sep">  ///  </span>`;
+                    const aTag = item.away_is_fav ? `<span class="fav-team-abbr">${item.away_team}</span>` : item.away_team;
+                    const hTag = item.home_is_fav ? `<span class="fav-team-abbr">${item.home_team}</span>` : item.home_team;
+                    tickerHtml += `<span class="tick-item"><span class="tick-label">${item.label}</span>${aTag} @ ${hTag}${dt ? ' | ' + dt : ''}</span><span class="tick-sep">  ///  </span>`;
                 });
                 (data.local_schedule_items || []).filter(i => i.type === 'rss' && isToday(i.event_iso)).forEach(item => {
                     const dt = [item.date, item.time].filter(Boolean).join('   ');
-                    tickerHtml += `<span class="tick-item"><span class="tick-label">${item.label}</span>${item.title}${dt ? ' | ' + dt : ''}</span><span class="tick-sep">  ///  </span>`;
+                    let text = item.title;
+                    if (item.is_matchup) {
+                        const aTag = item.away_is_fav ? `<span class="fav-team-abbr">${item.away_team}</span>` : item.away_team;
+                        const hTag = item.home_is_fav ? `<span class="fav-team-abbr">${item.home_team}</span>` : item.home_team;
+                        text = `${aTag} @ ${hTag}`;
+                    }
+                    tickerHtml += `<span class="tick-item"><span class="tick-label">${item.label}</span>${text}${dt ? ' | ' + dt : ''}</span><span class="tick-sep">  ///  </span>`;
                 });
 
                 if (tickerHtml && tickerHtml !== lastTickerHtml) {

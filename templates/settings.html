@@ -208,6 +208,23 @@
         </div>
 
         <div style="margin-top:28px;">
+            <label style="margin-bottom:6px;font-size:18px;font-weight:700;letter-spacing:2px;color:var(--accent);">Color Mode</label>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                <button class="cmode-btn" data-val="auto">🎨 AUTO (from favorite team)</button>
+                <button class="cmode-btn" data-val="manual">✋ MANUAL</button>
+            </div>
+            <p style="color:#555;font-family:'Barlow',sans-serif;font-size:13px;margin-top:8px;">
+                Auto builds the background, cards, header and accent colors from your favorite team's official colors.
+                Manual uses the colors you pick below. Live/Final/Flash state colors are always respected.
+            </p>
+            <div id="palette-team-wrap" style="margin-top:16px;">
+                <label style="margin-bottom:6px;font-size:15px;color:#888;font-family:'Barlow',sans-serif;">Palette Team</label>
+                <select id="palette_team" style="width:100%;max-width:420px;"></select>
+                <p style="color:#555;font-family:'Barlow',sans-serif;font-size:13px;margin-top:6px;">Which favorite drives the auto palette. Leave as "First favorite" to track whichever team is first.</p>
+            </div>
+        </div>
+
+        <div style="margin-top:28px;">
             <label style="margin-bottom:6px;font-size:18px;font-weight:700;letter-spacing:2px;color:var(--accent);">Header &amp; Info</label>
             <div class="color-grid">
                 <div class="color-item"><label>Display Name &amp; Clock</label><input type="color" id="header_color" value="#F5A800"></div>
@@ -308,6 +325,30 @@
                     <label>VS / Pre-game Text</label>
                     <input type="color" id="color_light_vs" value="#445566">
                 </div>
+            </div>
+        </div>
+
+        <div style="margin-top:28px;">
+            <label style="margin-bottom:4px;font-size:18px;font-weight:700;letter-spacing:2px;color:var(--accent);">Element Colors</label>
+            <p style="color:#555;font-family:'Barlow',sans-serif;font-size:13px;margin-bottom:10px;">Everything else on the scoreboard — headers, borders, ticker, RSS/local slides and specials.</p>
+            <div class="color-grid">
+                <div class="color-item"><label>Header Background (Dark)</label><input type="color" id="color_header_bg_dark" value="#080808"></div>
+                <div class="color-item"><label>Header Background (Light)</label><input type="color" id="color_header_bg_light" value="#eef2f8"></div>
+                <div class="color-item"><label>Header Border</label><input type="color" id="color_header_border" value="#2a2a2a"></div>
+                <div class="color-item"><label>Card Border (Pre-game)</label><input type="color" id="color_card_border" value="#ffffff"></div>
+                <div class="color-item"><label>Logo Glow</label><input type="color" id="color_logo_glow" value="#ffffff"></div>
+                <div class="color-item"><label>Ticker Top Border</label><input type="color" id="color_ticker_border" value="#099afc"></div>
+                <div class="color-item"><label>Final Badge Text</label><input type="color" id="color_final_badge_text" value="#ffffff"></div>
+                <div class="color-item"><label>RSS / Local Label</label><input type="color" id="color_rss_label" value="#ffffff"></div>
+                <div class="color-item"><label>RSS / Local Event</label><input type="color" id="color_rss_event" value="#ffffff"></div>
+                <div class="color-item"><label>RSS / Local Sub-text</label><input type="color" id="color_rss_subevent" value="#888888"></div>
+                <div class="color-item"><label>Special Body Text</label><input type="color" id="color_special_text" value="#cccccc"></div>
+                <div class="color-item"><label>Golf Position</label><input type="color" id="color_golf_pos" value="#F5A800"></div>
+                <div class="color-item"><label>Race Event Name</label><input type="color" id="color_race_event" value="#666666"></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;margin-top:14px;">
+                <input type="checkbox" id="ticker_border_cycle" style="width:20px;height:20px;cursor:pointer;accent-color:var(--accent);">
+                <label for="ticker_border_cycle" style="margin:0;font-size:16px;font-weight:700;letter-spacing:1px;color:#ccc;cursor:pointer;">Cycle ticker border colors (burn-in prevention)</label>
             </div>
         </div>
     </div>
@@ -620,6 +661,15 @@
         <p style="color:#666;font-family:'Barlow',sans-serif;font-size:15px;margin-bottom:20px;">
             Enter local games (high school, club, etc.) to show as slides and in the ticker — no live scoring. Optionally pull from an RSS feed.
         </p>
+
+        <div style="margin-bottom:20px;">
+            <label style="margin-bottom:6px;font-size:15px;color:#888;font-family:'Barlow',sans-serif;">Your Team Keywords</label>
+            <input type="text" id="home_team_keywords" placeholder="e.g. Auburn, Bulldogs" style="width:100%;box-sizing:border-box;">
+            <p style="color:#555;font-family:'Barlow',sans-serif;font-size:13px;margin-top:6px;">
+                Comma-separated names that identify YOUR team. Events like "Auburn @ Opelika" or "Auburn vs Opelika"
+                are split into two sides and your team is highlighted.
+            </p>
+        </div>
 
         <div id="rss-feeds-list" style="display:flex;flex-direction:column;gap:12px;margin-bottom:14px;"></div>
         <button class="btn btn-save" style="background:#1a1a1a;color:var(--accent);border:1px solid var(--accent);margin-bottom:20px;" onclick="addRssFeed()">+ ADD RSS FEED</button>
@@ -1144,6 +1194,17 @@
         btn.addEventListener('click', () => {
             document.querySelectorAll('.font-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
+        });
+    });
+
+
+    // ── Color mode toggle ──
+    document.querySelectorAll('.cmode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.cmode-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const manual = btn.dataset.val === 'manual';
+            document.getElementById('palette-team-wrap').style.display = manual ? 'none' : '';
         });
     });
 
@@ -1804,6 +1865,25 @@
         document.getElementById('color_light_card').value      = colors.light_card      || '#ffffff';
         document.getElementById('color_light_border').value    = colors.light_border    || '#ffffff';
         document.getElementById('color_light_vs').value        = colors.light_vs        || '#445566';
+        // Element colors
+        document.getElementById('color_header_bg_dark').value   = colors.header_bg_dark   || '#080808';
+        document.getElementById('color_header_bg_light').value  = colors.header_bg_light  || '#eef2f8';
+        document.getElementById('color_header_border').value    = colors.header_border    || '#2a2a2a';
+        document.getElementById('color_card_border').value      = colors.card_border      || '#ffffff';
+        document.getElementById('color_logo_glow').value        = colors.logo_glow        || '#ffffff';
+        document.getElementById('color_ticker_border').value    = colors.ticker_border    || '#099afc';
+        document.getElementById('color_final_badge_text').value = colors.final_badge_text || '#ffffff';
+        document.getElementById('color_rss_label').value        = colors.rss_label        || '#ffffff';
+        document.getElementById('color_rss_event').value        = colors.rss_event        || '#ffffff';
+        document.getElementById('color_rss_subevent').value     = colors.rss_subevent     || '#888888';
+        document.getElementById('color_special_text').value     = colors.special_text     || '#cccccc';
+        document.getElementById('color_golf_pos').value         = colors.golf_pos         || '#F5A800';
+        document.getElementById('color_race_event').value       = colors.race_event       || '#666666';
+        document.getElementById('ticker_border_cycle').checked  = colors.ticker_border_cycle !== false;
+        // Color mode + palette team (populated after favorites load)
+        const colorMode = currentSettings.color_mode || 'auto';
+        document.querySelectorAll('.cmode-btn').forEach(b => b.classList.toggle('active', b.dataset.val === colorMode));
+        document.getElementById('palette-team-wrap').style.display = colorMode === 'manual' ? 'none' : '';
         // Font
         const fontPrimary = currentSettings.font_primary || 'Barlow Condensed';
         document.querySelectorAll('.font-btn').forEach(b =>
@@ -1869,6 +1949,7 @@
         }
         renderRssFeeds();
         scheduleItems = ls.items || [];
+        document.getElementById('home_team_keywords').value = (ls.home_team_keywords || []).join(', ');
         renderSchedule();
 
         const sched = currentSettings.schedule || {};
@@ -1947,7 +2028,23 @@
                 light_card:       document.getElementById('color_light_card').value,
                 light_border:     document.getElementById('color_light_border').value,
                 light_vs:         document.getElementById('color_light_vs').value,
+                header_bg_dark:   document.getElementById('color_header_bg_dark').value,
+                header_bg_light:  document.getElementById('color_header_bg_light').value,
+                header_border:    document.getElementById('color_header_border').value,
+                card_border:      document.getElementById('color_card_border').value,
+                logo_glow:        document.getElementById('color_logo_glow').value,
+                ticker_border:    document.getElementById('color_ticker_border').value,
+                ticker_border_cycle: document.getElementById('ticker_border_cycle').checked,
+                final_badge_text: document.getElementById('color_final_badge_text').value,
+                rss_label:        document.getElementById('color_rss_label').value,
+                rss_event:        document.getElementById('color_rss_event').value,
+                rss_subevent:     document.getElementById('color_rss_subevent').value,
+                special_text:     document.getElementById('color_special_text').value,
+                golf_pos:         document.getElementById('color_golf_pos').value,
+                race_event:       document.getElementById('color_race_event').value,
             },
+            color_mode:     document.querySelector('.cmode-btn.active')?.dataset.val || 'auto',
+            palette_team:   document.getElementById('palette_team').value,
             font_primary:   document.querySelector('.font-btn.active')?.dataset.font || 'Barlow Condensed',
             city:           document.getElementById('city').value,
             timezone:       document.getElementById('timezone').value,
@@ -1981,6 +2078,8 @@
             local_schedule: {
                 rss_feeds: rssFeeds.filter(f => f.url.trim()),
                 items:     scheduleItems,
+                home_team_keywords: document.getElementById('home_team_keywords').value
+                    .split(',').map(s => s.trim()).filter(Boolean),
             },
             schedule: {
                 shutdown: { enabled: document.getElementById('shutdown-enabled').checked, time: document.getElementById('shutdown-time').value || '23:00' },
@@ -2241,6 +2340,26 @@
                 syncPlaylist();
             });
             grid.appendChild(card);
+        });
+        refreshPaletteTeamOptions();
+    }
+
+
+    function refreshPaletteTeamOptions() {
+        const sel = document.getElementById('palette_team');
+        if (!sel) return;
+        const current = currentSettings?.palette_team || sel.value || '';
+        sel.innerHTML = '<option value="">First favorite</option>';
+        selectedTeams.forEach(key => {
+            const colon = key.lastIndexOf(':');
+            const league = key.slice(0, colon);
+            const abbr   = key.slice(colon+1);
+            const meta   = teamMeta[key] || {};
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = `${meta.name || abbr} (${LEAGUE_LABELS[league] || league})`;
+            if (key === current) opt.selected = true;
+            sel.appendChild(opt);
         });
     }
 
