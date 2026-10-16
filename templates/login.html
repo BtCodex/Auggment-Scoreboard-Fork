@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>SCOREBOARD LOGIN</title>
-    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;900&family=Barlow:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;900&family=Barlow:wght@400;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/static/css/main.css">
 </head>
 <body class="pg-login">
@@ -18,10 +19,6 @@
             <button type="submit">ENTER</button>
         </form>
     </div>
-    <script>
-        fetch('/api/settings').then(r => r.json()).then(s => {
-            if (s.theme === 'light') document.body.classList.add('light');
-        }).catch(() => {});
-    </script>
+
 </body>
 </html>

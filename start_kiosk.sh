@@ -1,78 +1,98 @@
 #!/bin/bash
-# Kiosk launcher. install.sh regenerates this with the exact browser/port baked
-# in; this self-configuring copy is a safe fallback for manual installs.
+# Shared launcher for installed and manual kiosks. Run as the desktop user.
+# install.sh copies this file unchanged so startup fixes cannot drift.
+set -u
 
-# Pick the best available browser binary
-if command -v chromium >/dev/null 2>&1; then
-    BROWSER=$(command -v chromium)
-elif command -v chromium-browser >/dev/null 2>&1; then
-    BROWSER=$(command -v chromium-browser)
-elif [ -x /opt/google/chrome/chrome ]; then
-    BROWSER=/opt/google/chrome/chrome
-elif command -v google-chrome-stable >/dev/null 2>&1; then
-    BROWSER=$(command -v google-chrome-stable)
-fi
-if [ -z "$BROWSER" ] || [ ! -x "$BROWSER" ]; then
-    echo "No Chromium/Chrome browser found. Install one first." >&2
+APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export DISPLAY="${DISPLAY:-:0}"
+export XAUTHORITY="${XAUTHORITY:-$HOME/.Xauthority}"
+
+if [ "$(id -u)" -eq 0 ]; then
+    echo "Run the kiosk as a regular desktop user; Chromium's sandbox stays enabled." >&2
     exit 1
 fi
 
-# Port: settings.json (when present) is authoritative — it is what app.py
-# actually binds. Fallback: kiosk.json present => kiosk mode (5001), else 5000.
-_APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BROWSER="${SCOREBOARD_BROWSER:-}"
+if [ -z "$BROWSER" ]; then
+    for candidate in chromium chromium-browser google-chrome google-chrome-stable; do
+        if command -v "$candidate" >/dev/null 2>&1; then
+            BROWSER="$(command -v "$candidate")"
+            break
+        fi
+    done
+fi
+if [ -z "$BROWSER" ] || [ ! -x "$BROWSER" ]; then
+    echo "No Chromium/Chrome browser found. Install the distribution browser first." >&2
+    exit 1
+fi
+if ! command -v curl >/dev/null 2>&1; then
+    echo "curl is required to wait for the scoreboard backend." >&2
+    exit 1
+fi
+
+# settings.json is authoritative. The legacy kiosk.json fallback is retained
+# for older installations that have not saved settings yet.
 PORT=5000
-[ -f "$_APP_DIR/kiosk.json" ] && PORT=5001
-if command -v python3 >/dev/null 2>&1 && [ -f "$_APP_DIR/settings.json" ]; then
-    SPORT=$(python3 - "$_APP_DIR/settings.json" <<'PYEOF' 2>/dev/null
+[ -f "$APP_DIR/kiosk.json" ] && PORT=5001
+if command -v python3 >/dev/null 2>&1 && [ -f "$APP_DIR/settings.json" ]; then
+    CONFIG_PORT=$(python3 - "$APP_DIR/settings.json" <<'PYEOF'
 import json, sys
-try: print(json.load(open(sys.argv[1])).get('port', ''))
-except Exception: pass
+try:
+    with open(sys.argv[1], encoding='utf-8') as stream:
+        port = json.load(stream).get('port')
+    if type(port) is int and 1 <= port <= 65535:
+        print(port)
+except (OSError, ValueError, TypeError, AttributeError):
+    pass
 PYEOF
 )
-    case "$SPORT" in
-        ''|*[!0-9]*) ;;
-        *) [ "$SPORT" -gt 0 ] 2>/dev/null && PORT="$SPORT" ;;
-    esac
+    [ -n "$CONFIG_PORT" ] && PORT="$CONFIG_PORT"
 fi
-echo "Kiosk will open http://localhost:${PORT}"
+URL="http://127.0.0.1:${PORT}/"
 
-# Chrome's --kiosk can fail to go fullscreen on WM-less X11 (Chrome >= 152),
-# leaving a default-sized window. Force the exact active-resolution geometry.
-CHROME_GEOMETRY=""
+# A unit being ordered after display-manager.service does not mean that X11
+# has finished autologin. Wait for the actual user's display before launch.
+if command -v xset >/dev/null 2>&1; then
+    echo "Waiting for X11 display ${DISPLAY} ..."
+    display_attempt=0
+    until xset q >/dev/null 2>&1; do
+        display_attempt=$((display_attempt + 1))
+        if [ $((display_attempt % 15)) -eq 0 ]; then
+            echo "X11 session is still unavailable; check LightDM, DISPLAY and XAUTHORITY."
+        fi
+        sleep 2
+    done
+    xset s off >/dev/null 2>&1 || true
+    xset -dpms >/dev/null 2>&1 || true
+    xset s noblank >/dev/null 2>&1 || true
+fi
+
+# Never open a refused-connection page after an arbitrary timeout. Each probe
+# is bounded, but late/offline boots can wait indefinitely without restarting.
+echo "Waiting for scoreboard at ${URL} ..."
+attempt=0
+until curl --fail --silent --show-error --connect-timeout 2 --max-time 5 "$URL" >/dev/null 2>&1; do
+    attempt=$((attempt + 1))
+    if [ $((attempt % 15)) -eq 0 ]; then
+        echo "Scoreboard is still starting; retrying ${URL} (check scoreboard.service)."
+    fi
+    sleep 2
+done
+
+# Fullscreen geometry on minimal Openbox/X11 installations. No global pkill:
+# starting a kiosk must not terminate unrelated browsers or another display.
+GEOMETRY=()
 if command -v xrandr >/dev/null 2>&1; then
-    GEO=$(xrandr --current 2>/dev/null | awk '/\*/{print $1; exit}')
-    if [ -n "$GEO" ]; then
-        W=${GEO%x*}
-        H=${GEO#*x}
-        case "$W:$H" in
-            *[!0-9]*:*[!0-9]*) ;;
-            *) [ "$W" -gt 0 ] 2>/dev/null && [ "$H" -gt 0 ] 2>/dev/null \
-                && CHROME_GEOMETRY="--window-size=${W},${H} --window-position=0,0" ;;
-        esac
+    RESOLUTION=$(xrandr --current 2>/dev/null | awk '/\*/{print $1; exit}')
+    if [[ "$RESOLUTION" =~ ^([0-9]+)x([0-9]+)$ ]] &&
+       [ "${BASH_REMATCH[1]}" -gt 0 ] && [ "${BASH_REMATCH[2]}" -gt 0 ]; then
+        GEOMETRY=("--window-size=${BASH_REMATCH[1]},${BASH_REMATCH[2]}" "--window-position=0,0")
     fi
 fi
 
-# Kill any existing kiosk browser so we get a clean single instance
-pkill -f "chrom.*--kiosk" 2>/dev/null || true
-sleep 2
-
-xset s off
-xset -dpms
-xset s noblank
-
-pkill unclutter 2>/dev/null || true
-unclutter -idle 0 &
-
-_tries=0
-until curl -sf "http://localhost:${PORT}" > /dev/null 2>&1; do
-    sleep 1
-    _tries=$((_tries+1))
-    [ $_tries -ge 60 ] && break
-done
-
-# exec the raw binary so systemd tracks the browser PID directly.
-# --user-data-dir isolates the kiosk profile so Chrome never detects an
-# "existing browser session" and exits prematurely.
+VERSION=$(cat "$APP_DIR/version.txt" 2>/dev/null || true)
+[[ "$VERSION" =~ ^[a-zA-Z0-9._-]+$ ]] || VERSION=local
+echo "Opening scoreboard at ${URL}"
 exec "$BROWSER" \
     --kiosk \
     --start-fullscreen \
@@ -82,8 +102,6 @@ exec "$BROWSER" \
     --disable-restore-session-state \
     --noerrdialogs \
     --disable-translate \
-    --check-for-update-interval=31536000 \
-    --confirm-to-quit \
-    $CHROME_GEOMETRY \
+    "${GEOMETRY[@]}" \
     --user-data-dir="$HOME/.config/browser-kiosk" \
-    "http://localhost:${PORT}/?v=$(cat "$_APP_DIR/version.txt" 2>/dev/null || echo 1.0.8)"
+    "${URL}?v=${VERSION}"

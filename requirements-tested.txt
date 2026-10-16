@@ -1,0 +1,6 @@
+# Optional cloud-tested reference stack, Python 3.10+. Not a new Pi dependency.
+# Pi OS installations can keep supported distro packages; see docs/INSTALL_AND_ROLLBACK.md.
+Flask==3.1.3
+requests==2.34.2
+pytz==2026.5
+python-dateutil==2.9.0.post0

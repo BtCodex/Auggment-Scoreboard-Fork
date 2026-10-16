@@ -1434,3 +1434,34 @@ body.pg-index.vertical .race-row {
 body.pg-index.vertical .golf-pos {
     font-size: clamp(calc(36 * var(--px)), min(11vh, 11vw), calc(135 * var(--px)));
 }
+
+/* Phone-accessible settings; preserve the dark sports palette. */
+.move-controls { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.move-controls button { min-width: 44px; min-height: 44px; background: #222; color: #F5A800; border: 1px solid #555; border-radius: 6px; }
+.move-controls button:disabled { opacity: .3; }
+body.pg-settings .row > *, body.pg-settings .section-pair > * { min-width: 0; }
+body.pg-settings input, body.pg-settings select, body.pg-settings textarea { max-width: 100%; }
+@media (max-width: 600px) {
+ body.pg-settings header { padding: 12px; gap: 8px; flex-wrap: wrap; }
+ body.pg-settings header h1 { font-size: 23px; letter-spacing: 1px; }
+ body.pg-settings .header-right { gap: 6px; }
+ body.pg-settings .btn { padding: 10px 12px; min-height: 44px; }
+ body.pg-settings .container { padding: 0 10px; margin: 16px auto; }
+ body.pg-settings .section { padding: 16px; overflow-wrap: anywhere; }
+ body.pg-settings .row, body.pg-settings .section-pair { flex-direction: column; }
+ body.pg-settings .color-grid { grid-template-columns: minmax(0, 1fr); }
+ body.pg-settings input, body.pg-settings select, body.pg-settings textarea { font-size: 16px; }
+ body.pg-settings .special-item-top { flex-wrap: wrap; }
+ body.pg-settings .sp-row { flex-wrap: wrap; }
+}
+
+/* Mobile settings navigation and status. */
+.settings-nav { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; padding:12px; background:#111; }
+.settings-nav a { color:#F5A800; border:1px solid #444; border-radius:6px; padding:10px; min-height:44px; text-decoration:none; }
+body.pg-settings .section-title { scroll-margin-top:110px; }
+#settings-message { position:sticky; top:90px; z-index:90; background:#111; color:#F5A800; padding:0 12px; text-align:center; overflow-wrap:anywhere; }
+#settings-message:not(:empty) { padding:12px; border-bottom:1px solid #444; }
+.settings-warning { background:#332800; color:#ffe18a; padding:12px; border-radius:6px; }
+body.pg-settings input[type=number] { width:100%; padding:12px; color:#eee; background:#080808; border:1px solid #444; border-radius:6px; font:inherit; }
+body.pg-settings p { line-height:1.5; }
+#safe-defaults-btn { margin-top:16px; }

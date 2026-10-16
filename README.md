@@ -1,5 +1,13 @@
 # Auggmented Scoreboard
 
+This development branch adds configurable clock/display modes, safer caching and
+startup, mobile settings, and security fixes while retaining the existing sports
+scoreboard. See [the QC report](QC_REPORT.md), [installation and rollback guide](docs/INSTALL_AND_ROLLBACK.md),
+[physical Pi checklist](docs/PHYSICAL_PI_CHECKLIST.md), and [dual-display plan](docs/DUAL_DISPLAY_PLAN.md).
+The candidate is ready for controlled hardware testing, not yet verified for 24/7
+operation on a Raspberry Pi.
+
+
 ![Scoreboard](Images/Scoreboard1.png)
 
 ## What This Is
@@ -24,7 +32,7 @@ It pulls real-time scores from ESPN for the major pro and college leagues, plus 
 * **Operating System**
   * Raspberry Pi: Raspberry Pi OS (Lite is recommended for Server; Desktop for Kiosk/Combined).
   * Generic PC: Debian or Ubuntu-based Linux distributions.
-* **Hardware**: Raspberry Pi 5 or any x86_64 PC, plus a TV or monitor for Kiosk/Combined mode.
+* **Hardware**: Raspberry Pi 4 with 2GB RAM (single 1080p display recommended initially), or an x86_64 PC, plus a TV or monitor for Kiosk/Combined mode.
 * **Environment**: The installer targets a non-graphical (CLI) fresh OS install. For Kiosk/Combined mode it installs and configures its own minimal window manager (Openbox) and display server (X11) — you don't need a desktop environment pre-installed.
 
 ## Installation
@@ -62,7 +70,58 @@ Once installed, find the device's IP address (`hostname -I` on the Pi, or check 
 
 **Default login is `admin` / `root`** — change this immediately from the Settings page (Admin Credentials section) once you're in.
 
-If you can't find the device's IP (e.g. no DHCP, no router access), `install.sh` automatically assigns a fallback static IP of **`192.168.1.250`** on the wired Ethernet port as a failsafe — connect a laptop to the same switch/router and browse to `http://192.168.1.250:5000/settings` (or `:5001` for kiosk-only installs).
+Use your router's DHCP device list or `hostname -I` to find the device. The revised
+installer preserves existing DHCP/Wi-Fi configuration and does not assign a fallback
+static address or change network managers.
+
+## Quality control and safe physical testing
+
+See [QC_REPORT.md](QC_REPORT.md) for the exact changes, automated/browser/live-feed
+results, Raspberry Pi validation checklist, and selective installation/rollback
+instructions. This candidate is ready for physical testing; a 24–48 hour test on
+the target 32-bit Raspberry Pi 4 is still required before unattended use.
+
+## Clock settings and testing before installation
+
+In Settings, next to Timezone, choose **Clock** → **12-hour**, **24-hour**, or
+**Hidden**, then save. Midnight is `12:00 AM` / `00:00`; noon is `12:00 PM` /
+`12:00`. Hidden removes both the clock and its separator, leaving the display name
+and weather visible. Existing configurations default to 12-hour time. The clock
+uses the selected timezone; paired kiosks use their own clock and timezone settings.
+Changes apply on the next normal feed refresh (up to 30 seconds), or immediately
+when the display page is reloaded.
+
+The clock adds no Python packages, browser libraries, services, or build step.
+It uses Chromium's built-in JavaScript APIs and caches its timezone formatter.
+It is intended for Raspberry Pi 4 with 2GB RAM and 32-bit Raspberry Pi OS, but
+hardware/OS-specific validation must be performed on that target. Node.js is only
+needed to run development tests, not to run the scoreboard or kiosk.
+
+Before installing on a Pi, test in a separate development checkout on a computer:
+
+```bash
+python3 -m venv /tmp/scoreboard-test-venv
+/tmp/scoreboard-test-venv/bin/python -m pip install -r requirements.txt
+/tmp/scoreboard-test-venv/bin/python -m unittest discover -s tests -v
+node tests/clock.test.js
+/tmp/scoreboard-test-venv/bin/python app.py
+```
+
+Run these commands from the project directory. Use Node.js 18 or newer for the
+JavaScript tests. The Python tests use temporary configuration files and mock
+external requests; they do not contact or modify a Pi. Formatting tests cover
+midnight, noon, minute boundaries, hidden/display transitions, timezone conversion,
+and daylight saving time. Integration tests cover persistence, legacy defaults,
+retention of other settings, and paired-kiosk overrides.
+
+For a manual check, open the development server on port 5000, sign in to Settings,
+and save each clock option. Reload the display and confirm each format, hidden
+clock/separator behavior, and persistence after restarting the development server.
+Confirm favorite teams, live scores, logo slides, and slide rotation still behave
+as expected. Live-feed checks require ESPN access; passing offline tests alone does
+not validate live feeds. Kiosk startup scripts are unchanged. Do not run the host
+installer or copy these changes onto an existing Pi until you have reviewed and
+tested them. No Pi installation is modified by these development checks.
 
 ## Google Chrome Troubleshooting (x86_64)
 

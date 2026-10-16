@@ -13,3 +13,7 @@ __pycache__/
 # OS cruft
 .DS_Store
 Thumbs.db
+
+# Local authentication key and retained sports snapshot
+.session-key
+score_cache.json

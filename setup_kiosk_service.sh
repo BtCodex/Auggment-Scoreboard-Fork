@@ -1,85 +1,87 @@
 #!/bin/bash
-# Run once with:  sudo bash setup_kiosk_service.sh
-# Installs the kiosk browser systemd service plus the sudoers entries the app
-# needs to control it (and Wi-Fi scanning) from the Settings page.
+# Run once with sudo only on a fresh/test installation. --render-unit is safe:
+# it prints the generated unit without writing files or invoking systemctl.
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_DIR="${APP_DIR:-$SCRIPT_DIR}"
+systemd_quote() {
+    local value="$1"
+    value="${value//\\/\\\\}"
+    value="${value//\"/\\\"}"
+    value="${value//%/%%}"
+    printf '"%s"' "$value"
+}
 
-# Resolve the app user: the (non-root) user who invoked sudo, else the owner of
-# the app directory, else the current user.
-if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
-    APP_USER="$SUDO_USER"
-else
-    APP_USER="$(stat -c '%U' "$APP_DIR" 2>/dev/null || true)"
-fi
-APP_USER="${APP_USER:-$USER}"
-SYSTEMCTL_PATH=$(command -v systemctl)
-IP_PATH=$(command -v ip || true)
-IP_PATH="${IP_PATH:-/usr/sbin/ip}"
-
-echo "--- Kiosk Service Installer ---"
-echo "  App dir : $APP_DIR"
-echo "  App user: $APP_USER"
-echo ""
-
-echo "--- Writing kiosk.service ---"
-cat > /etc/systemd/system/kiosk.service <<EOF
+render_kiosk_unit() {
+    local app_user="$1" app_dir="$2" app_home="$3"
+    [[ "$app_user" =~ ^[a-z_][a-z0-9_-]*\$?$ ]] || { echo "Invalid service user" >&2; return 1; }
+    [[ "$app_user" != root ]] || { echo "Use a regular desktop user for Chromium." >&2; return 1; }
+    [[ "$app_dir" == /* && "$app_home" == /* && "$app_dir$app_home" != *$'\n'* ]] || return 1
+    cat <<EOF
 [Unit]
 Description=Scoreboard Kiosk Browser
-After=graphical.target scoreboard.service
+After=display-manager.service scoreboard.service
 Wants=scoreboard.service
+# Keep retrying after a late display/backend, at a bounded 15-second cadence.
+StartLimitIntervalSec=0
 
 [Service]
-User=$APP_USER
+Type=simple
+User=$app_user
+WorkingDirectory=${app_dir//%/%%}
 Environment=DISPLAY=:0
-ExecStart=$APP_DIR/start_kiosk.sh
+Environment=$(systemd_quote "HOME=$app_home")
+Environment=$(systemd_quote "XAUTHORITY=$app_home/.Xauthority")
+ExecStart=/bin/bash $(systemd_quote "$app_dir/start_kiosk.sh")
 Restart=always
-RestartSec=5
+RestartSec=15
+TimeoutStopSec=15
+KillMode=control-group
+UMask=0077
 
 [Install]
 WantedBy=graphical.target
 EOF
-echo "Written: /etc/systemd/system/kiosk.service"
+}
 
-echo "--- Writing sudoers entry ---"
-cat > /etc/sudoers.d/scoreboard <<EOF
-# Scoreboard service control
-$APP_USER ALL=(ALL) NOPASSWD: $SYSTEMCTL_PATH start kiosk.service
-$APP_USER ALL=(ALL) NOPASSWD: $SYSTEMCTL_PATH stop kiosk.service
-$APP_USER ALL=(ALL) NOPASSWD: $SYSTEMCTL_PATH restart kiosk.service
-$APP_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl start kiosk.service
-$APP_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop kiosk.service
-$APP_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart kiosk.service
-$APP_USER ALL=(ALL) NOPASSWD: /bin/systemctl start kiosk.service
-$APP_USER ALL=(ALL) NOPASSWD: /bin/systemctl stop kiosk.service
-$APP_USER ALL=(ALL) NOPASSWD: /bin/systemctl restart kiosk.service
-# Wi-Fi management (incl. bringing interfaces up for scanning)
-$APP_USER ALL=(ALL) NOPASSWD: /usr/bin/nmcli
-$APP_USER ALL=(ALL) NOPASSWD: /bin/nmcli
-$APP_USER ALL=(ALL) NOPASSWD: /usr/sbin/iwlist
-$APP_USER ALL=(ALL) NOPASSWD: /bin/iwlist
-$APP_USER ALL=(ALL) NOPASSWD: /usr/sbin/iw
-$APP_USER ALL=(ALL) NOPASSWD: /bin/iw
-$APP_USER ALL=(ALL) NOPASSWD: /usr/sbin/wpa_cli
-$APP_USER ALL=(ALL) NOPASSWD: /bin/wpa_cli
-$APP_USER ALL=(ALL) NOPASSWD: $IP_PATH link set *
+if [[ "${1:-}" == --render-unit ]]; then
+    [[ $# -eq 4 ]] || { echo "Usage: $0 --render-unit USER APP_DIR USER_HOME" >&2; exit 2; }
+    render_kiosk_unit "$2" "$3" "$4"
+    exit
+fi
+
+[[ "$EUID" -eq 0 ]] || { echo "Run with sudo bash setup_kiosk_service.sh" >&2; exit 1; }
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="${APP_DIR:-$SCRIPT_DIR}"
+APP_USER="${APP_USER:-${SUDO_USER:-$(stat -c '%U' "$APP_DIR")}}"
+APP_HOME="$(getent passwd "$APP_USER" | cut -d: -f6)"
+[[ -n "$APP_HOME" && -f "$APP_DIR/start_kiosk.sh" ]] || { echo "User home or kiosk launcher missing." >&2; exit 1; }
+
+# Render before replacing anything, and preserve existing units for rollback.
+UNIT_TMP=$(mktemp)
+trap 'rm -f "$UNIT_TMP"' EXIT
+render_kiosk_unit "$APP_USER" "$APP_DIR" "$APP_HOME" > "$UNIT_TMP"
+if [[ -f /etc/systemd/system/kiosk.service ]]; then
+    cp -p /etc/systemd/system/kiosk.service "/etc/systemd/system/kiosk.service.backup-$(date +%Y%m%d%H%M%S)"
+fi
+install -m 644 "$UNIT_TMP" /etc/systemd/system/kiosk.service
+
+# This helper updates only kiosk controls. Leave Wi-Fi and backend grants from
+# install.sh in place instead of overwriting all existing sudoers configuration.
+SYSTEMCTL_PATH=$(command -v systemctl)
+SUDO_TMP=$(mktemp)
+trap 'rm -f "$UNIT_TMP" "$SUDO_TMP"' EXIT
+cat > "$SUDO_TMP" <<EOF
+# Scoreboard kiosk controls only
+$APP_USER ALL=(root) NOPASSWD: $SYSTEMCTL_PATH start kiosk.service
+$APP_USER ALL=(root) NOPASSWD: $SYSTEMCTL_PATH stop kiosk.service
+$APP_USER ALL=(root) NOPASSWD: $SYSTEMCTL_PATH restart kiosk.service
 EOF
-chmod 440 /etc/sudoers.d/scoreboard
-visudo -c -f /etc/sudoers.d/scoreboard && echo "Written: /etc/sudoers.d/scoreboard"
-
-echo "--- Reloading systemd ---"
+chmod 440 "$SUDO_TMP"
+visudo -c -f "$SUDO_TMP"
+install -m 440 "$SUDO_TMP" /etc/sudoers.d/scoreboard-kiosk
 systemctl daemon-reload
 systemctl enable kiosk.service
-echo "Enabled: kiosk.service"
-
-echo ""
-echo "Done. kiosk.service is now installed."
-echo "It will start automatically with a graphical session."
-echo "Use the Settings page or 'sudo systemctl start kiosk.service' to launch it manually."
-echo ""
-echo "NOTE: Install a browser first:"
-echo "  x86_64: place google-chrome-stable_current_amd64.deb next to install.sh, then:"
-echo "    sudo apt install ./google-chrome-stable_current_amd64.deb"
-echo "  ARM:    sudo apt install chromium"
+printf '%s\n' "Kiosk service installed for $APP_USER (X11/Openbox)." \
+    "Start: sudo systemctl start kiosk.service" \
+    "Maintenance: Ctrl+Alt+F2, log in, then sudo systemctl stop kiosk.service" \
+    "Resume: sudo systemctl start kiosk.service"

@@ -4,34 +4,38 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Gameday Scoreboard</title>
-    <link id="font-link" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;900&family=Barlow:wght@400;600&display=swap" rel="stylesheet">
+    <link id="font-link" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;900&family=Barlow:wght@400;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/display-modes.css">
 </head>
-<body class="pg-index">
+<body class="pg-index display-{{ settings.display_mode | default('hybrid') }}">
     <header id="main-header">
         <div id="header-left">
             <span id="display-name">Scoreboard</span>
             <span id="header-sep">|</span>
-            <span id="top-clock">00:00 PM</span>
+            <span id="top-clock"></span>
         </div>
         <div id="weather">--</div>
     </header>
 
 
     <div class="stage" id="main-stage">
-        <div class="slide active" id="logo-slide">
-            <center><img src="/static/uploads/logo.png" onerror="this.src='https://via.placeholder.com/560x400?text=SCOREBOARD'"></center>
+        <div class="slide active empty-slide" data-slide-key="empty">
+            <div class="empty-state"><strong>GAMEDAY</strong><span>Loading scores…</span></div>
         </div>
     </div>
 
 
     <footer id="main-footer">
         <div class="ticker-wrap">
-            <div class="ticker" id="ticker-text">LOADING GAMEDAY FEED...</div>
+            <div class="ticker" id="ticker-text"><span class="ticker-segment">LOADING GAMEDAY FEED…</span></div>
         </div>
     </footer>
 
 
+    <div id="connection-status" role="status" hidden></div>
+    <script src="{{ url_for('static', filename='js/clock.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/display.js') }}"></script>
     <script>
         function updateScale() {
             const vw = window.innerWidth;
@@ -78,17 +82,24 @@
         }
 
 
-        window.addEventListener('resize', () => { updateScale(); applyOrientation(currentOrientation); });
+        window.addEventListener('resize', () => {
+            updateScale(); applyOrientation(currentOrientation);
+            resetTickerAnimation();
+        });
         updateScale();
         applyOrientation('auto');
         // ─── CLOCK ───
+        let clockFormat = {{ settings.clock_format | tojson }};
+        let clockTimezone = {{ settings.timezone | tojson }};
         let _lastClockStr = '';
         function updateClock() {
-            const now = new Date();
-            const s = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const hidden = clockFormat === 'hidden';
+            document.getElementById('top-clock').hidden = hidden;
+            document.getElementById('header-sep').hidden = hidden;
+            const s = ScoreboardClock.format(new Date(), clockFormat, clockTimezone);
             if (s !== _lastClockStr) {
                 _lastClockStr = s;
-                document.getElementById('top-clock').innerText = s;
+                document.getElementById('top-clock').textContent = s;
             }
         }
         setInterval(updateClock, 1000);
@@ -149,17 +160,80 @@
 
         // ─── DATA ───
         let previousScores = {}; // key: eventId, value: score string for flash detection
-        let currentSlideKey = 'logo';
+        let currentSlideKey = 'empty';
         let slideTimer = null;
         let slideInterval = 13000;
         let lastTickerHtml = '';
         let settingsVersion = null;
         let appVersion = null;
+        let displayMode = ScoreboardDisplay.normalizeMode({{ settings.display_mode | default('hybrid') | tojson }});
+        let logoSlideInterval = 8000;
+        let transitionDuration = 500;
+        let dataPollTimer = null;
+        let browserRefreshSeconds = 30;
+        let lastSuccessfulFetch = 0;
+        let logoProbeSource = '';
+        let logoProbeReady = false;
+        let logoProbePromise = null;
+        let logoProbeAttemptAt = 0;
+
+        function applyDisplayMode(mode) {
+            const next = ScoreboardDisplay.normalizeMode(mode);
+            if (displayMode !== next) {
+                document.body.classList.remove('display-scoreboard', 'display-ticker', 'display-hybrid');
+                displayMode = next;
+            }
+            document.body.classList.add('display-' + displayMode);
+            if (displayMode === 'ticker') {
+                if (slideTimer) clearTimeout(slideTimer);
+                slideTimer = null;
+            }
+            resetTickerAnimation();
+        }
+
+        async function logoAvailable(data) {
+            if (displayMode === 'ticker' || data.show_logo_slide === false || data.logo_available === false) return false;
+            const source = '/static/uploads/logo.png?v=' + encodeURIComponent(data.logo_version || '');
+            if (source === logoProbeSource && (logoProbeReady || logoProbePromise || Date.now() - logoProbeAttemptAt < 60000)) return logoProbePromise || logoProbeReady;
+            logoProbeSource = source;
+            logoProbeAttemptAt = Date.now();
+            logoProbeReady = false;
+            logoProbePromise = new Promise(resolve => {
+                const image = new Image();
+                const finish = ready => {
+                    clearTimeout(timer);
+                    image.onload = image.onerror = null;
+                    if (logoProbeSource === source) logoProbeReady = ready;
+                    resolve(ready);
+                };
+                const timer = setTimeout(() => finish(false), 3000);
+                image.onload = () => finish(image.naturalWidth > 0);
+                image.onerror = () => finish(false);
+                image.src = source;
+            });
+            const ready = await logoProbePromise;
+            logoProbePromise = null;
+            return ready;
+        }
+
+        function removeBadLogo(image) {
+            const slide = image.closest('.slide');
+            if (!slide) return;
+            logoProbeReady = false;
+            const wasActive = slide.classList.contains('active');
+            slide.remove();
+            if (wasActive) {
+                const next = document.querySelector('#main-stage .slide');
+                if (next) { next.classList.add('active'); currentSlideKey = next.dataset.slideKey; }
+            }
+            ensureSlideshow();
+        }
 
         // Ticker: pixel-driven marquee so speed stays constant regardless of
         // how much content is in the bar (CSS % animations drift as width changes).
         let tickerSpeed = 120;
         let tickerOffset = 0;
+        const tickerElement = document.getElementById('ticker-text');
 
 
         function buildScoreText(awayScore, homeScore) {
@@ -169,6 +243,7 @@
 
         function patchStage(newEls) {
             const stage = document.getElementById('main-stage');
+            const previousSlideKey = currentSlideKey;
             const existingByKey = new Map();
             for (const el of stage.children) {
                 const k = el.dataset.slideKey;
@@ -179,11 +254,20 @@
                 if (k && existingByKey.has(k)) {
                     const ex = existingByKey.get(k);
                     if (ex.innerHTML !== newEl.innerHTML) ex.innerHTML = newEl.innerHTML;
+                    for (const attr of [...ex.attributes]) {
+                        if (attr.name !== 'class' && !newEl.hasAttribute(attr.name)) ex.removeAttribute(attr.name);
+                    }
+                    for (const attr of newEl.attributes) {
+                        if (attr.name !== 'class') ex.setAttribute(attr.name, attr.value);
+                    }
                     return ex;
                 }
                 return newEl;
             });
-            stage.replaceChildren(...finalEls);
+            // Keep stable game nodes in place; avoid reloading unchanged image/iframe slides.
+            if (stage.children.length !== finalEls.length || finalEls.some((el, index) => stage.children[index] !== el)) {
+                stage.replaceChildren(...finalEls);
+            }
             const activeEl = finalEls.find(el => el.dataset.slideKey === currentSlideKey);
             if (activeEl) {
                 finalEls.forEach(el => el.classList.toggle('active', el === activeEl));
@@ -192,43 +276,64 @@
                 finalEls[0].classList.add('active');
                 currentSlideKey = finalEls[0].dataset.slideKey || '';
             }
-            ensureSlideshow();
+            ensureSlideshow(previousSlideKey !== currentSlideKey);
         }
 
         function advanceSlide() {
+            slideTimer = null;
             const slides = [...document.querySelectorAll('#main-stage .slide')];
-            if (!slides.length) return;
-            const idx = slides.findIndex(s => s.classList.contains('active'));
-            if (idx !== -1) {
+            if (!slides.length || displayMode === 'ticker') return;
+            const idx = slides.findIndex(slide => slide.classList.contains('active'));
+            if (slides.length > 1 && idx !== -1) {
                 const outgoing = slides[idx];
                 outgoing.classList.remove('active');
                 outgoing.classList.add('slide-exiting');
-                setTimeout(() => outgoing.classList.remove('slide-exiting'), 400);
+                setTimeout(() => outgoing.classList.remove('slide-exiting'), transitionDuration);
             }
-            const nextIdx = ((idx !== -1 ? idx : -1) + 1) % slides.length;
-            const incoming = slides[nextIdx];
-            incoming.classList.add('active', 'slide-entering');
-            setTimeout(() => incoming.classList.remove('slide-entering'), 600);
+            const incoming = slides[(idx + 1) % slides.length];
+            incoming.classList.add('active');
+            if (slides.length > 1) {
+                incoming.classList.add('slide-entering');
+                setTimeout(() => incoming.classList.remove('slide-entering'), transitionDuration);
+            }
             currentSlideKey = incoming.dataset.slideKey || '';
+            ensureSlideshow();
         }
 
-        function ensureSlideshow() {
+        function ensureSlideshow(reset) {
+            if (reset && slideTimer) { clearTimeout(slideTimer); slideTimer = null; }
+            if (displayMode === 'ticker') return;
+            const slides = document.querySelectorAll('#main-stage .slide');
+            if (slides.length < 2) {
+                if (slideTimer) clearTimeout(slideTimer);
+                slideTimer = null;
+                return;
+            }
             if (!slideTimer) {
-                slideTimer = setInterval(advanceSlide, slideInterval);
+                const duration = currentSlideKey === 'logo' ? logoSlideInterval : slideInterval;
+                slideTimer = setTimeout(advanceSlide, duration);
             }
         }
 
+        let dataUpdateInFlight = false;
         async function updateData() {
+            if (dataUpdateInFlight) return;
+            dataUpdateInFlight = true;
+            if (dataPollTimer) { clearTimeout(dataPollTimer); dataPollTimer = null; }
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 20000);
             try {
-                const res = await fetch('/api/data');
+                const res = await fetch('/api/data', {signal: controller.signal});
+                if (!res.ok) throw new Error('Score API HTTP ' + res.status);
                 const data = await res.json();
-
-                // Reload if settings or app version changed since last poll
-                if (settingsVersion && data.settings_updated_at && data.settings_updated_at !== settingsVersion) {
-                    window.location.reload();
-                    return;
+                if (!data || !Array.isArray(data.teams) || !Array.isArray(data.ticker_parts)) {
+                    throw new Error('Invalid score response');
                 }
+
+                // Display preferences apply live; keep the current game and cached feed.
                 settingsVersion = data.settings_updated_at || settingsVersion;
+                browserRefreshSeconds = ScoreboardDisplay.duration(data.browser_refresh_seconds, 30, 30, 900);
+                applyDisplayMode(data.display_mode);
                 if (appVersion && data.app_version && data.app_version !== appVersion) {
                     window.location.reload();
                     return;
@@ -236,19 +341,18 @@
                 appVersion = data.app_version || appVersion;
 
                 // Apply slide transition class
-                const trans = data.slide_transition || 'slide-right';
+                const trans = ['slide-right', 'slide-left', 'slide-top', 'slide-bottom', 'fade'].includes(data.slide_transition) ? data.slide_transition : 'slide-right';
                 document.body.classList.remove('transition-slide-right', 'transition-slide-left', 'transition-slide-top', 'transition-slide-bottom', 'transition-fade');
                 document.body.classList.add('transition-' + trans);
 
-                // Update slide interval if duration changed
-                const newInterval = (data.slide_duration || 8) * 1000;
-                if (newInterval !== slideInterval) {
-                    slideInterval = newInterval;
-                    if (slideTimer) {
-                        clearInterval(slideTimer);
-                        slideTimer = setInterval(advanceSlide, slideInterval);
-                    }
-                }
+                const newInterval = ScoreboardDisplay.duration(data.slide_duration, 8, 1, 3600) * 1000;
+                const newLogoInterval = ScoreboardDisplay.duration(data.logo_slide_duration, 8, 1, 3600) * 1000;
+                const timingChanged = newInterval !== slideInterval || newLogoInterval !== logoSlideInterval;
+                slideInterval = newInterval;
+                logoSlideInterval = newLogoInterval;
+                transitionDuration = ScoreboardDisplay.duration(data.transition_duration_ms, 500, 0, 2000);
+                document.documentElement.style.setProperty('--transition-duration', transitionDuration + 'ms');
+                if (timingChanged) ensureSlideshow(true);
 
                 // Apply user-configured colors as CSS variables
                 const colors = data.colors || {};
@@ -305,11 +409,15 @@
                 const fontPrimary = data.font_primary || 'Barlow Condensed';
                 root.style.setProperty('--font-primary', `'${fontPrimary}', sans-serif`);
                 applyFontLink(fontPrimary);
+                if (document.fonts) document.fonts.ready.then(() => resetTickerAnimation());
 
                 // Ticker top border: static configured color, or burn-in cycle
                 applyTickerBorder(colors);
 
                 // Header
+                clockFormat = data.clock_format || '12h';
+                clockTimezone = data.timezone || clockTimezone;
+                updateClock();
                 document.getElementById('display-name').innerText = data.display_name;
                 document.getElementById('display-name').style.color = data.header_color;
                 document.getElementById('top-clock').style.color = data.header_color;
@@ -332,24 +440,26 @@
 
                 // ─── BUILD SLIDES ───
                 // Collect slides into category buckets, then sort by slide_order
+                const renderData = ScoreboardDisplay.renderValue(data);
                 const catSlides = {};
-                function addSlide(cat, html) {
+                function addSlide(cat, html, teamKeys) {
                     const el = document.createElement('div');
                     el.innerHTML = html.trim();
                     const node = el.firstElementChild;
+                    if (teamKeys) node.dataset.teamKeys = JSON.stringify(teamKeys);
                     if (!catSlides[cat]) catSlides[cat] = [];
                     catSlides[cat].push(node);
                 }
 
                 // Logo
-                addSlide('logo', `
+                if (await logoAvailable(data)) addSlide('logo', `
                     <div class="slide" data-slide-key="logo" id="logo-slide">
-                        <center><img src="/static/uploads/logo.png?t=${Date.now()}" onerror="this.style.display='none'"></center>
+                        <center><img src="/static/uploads/logo.png?v=${encodeURIComponent(data.logo_version || '')}" alt="Custom scoreboard logo" onerror="removeBadLogo(this)"></center>
                     </div>`);
 
                 const flashIds = new Set();
-                (data.teams || []).forEach(t => {
-                    const key = `${t.away_name}@${t.home_name}`;
+                (renderData.teams || []).forEach(t => {
+                    const key = ScoreboardDisplay.gameKey(t);
                     const scoreNow = buildScoreText(t.away_score, t.home_score);
                     let doFlash = false;
                     if (!t.is_pre && previousScores[key] && previousScores[key] !== scoreNow) {
@@ -357,6 +467,7 @@
                         flashIds.add(key);
                     }
                     previousScores[key] = scoreNow;
+                    if (displayMode === 'ticker') return;
 
 
                     const stateClass = t.color_state; // 'pre', 'live', 'final'
@@ -380,10 +491,11 @@
                     let statusContent = '';
                     let statusVContent = '';  // vertical-mode center row
 
+                    const scheduledStatus = !t.game_state || t.game_state === 'scheduled' ? (t.local_time || t.status) : t.status;
                     if (t.is_pre) {
                         centerContent = `<div class="score-display pre vs-label">VS</div>`;
-                        statusContent = `<div class="status-bar pre">${t.local_time || t.status}</div>`;
-                        statusVContent = `<div class="status-v pre">${t.local_time || t.status}</div>`;
+                        statusContent = `<div class="status-bar pre">${scheduledStatus}</div>`;
+                        statusVContent = `<div class="status-v pre">${scheduledStatus}</div>`;
                     } else if (stateClass === 'live') {
                         centerContent = `
                             <div class="score-display live">
@@ -403,22 +515,22 @@
                                 <span class="score-part ${homeWinClass} ${homeScoreFavCls}">${t.home_score}</span>
                             </div>
                         `;
-                        statusContent = `<div class="status-bar final">FINAL</div>`;
-                        statusVContent = `<div class="status-v final">FINAL</div>`;
+                        statusContent = `<div class="status-bar final">${t.status || 'FINAL'}</div>`;
+                        statusVContent = `<div class="status-v final">${t.status || 'FINAL'}</div>`;
                     }
 
-                    const vEventTime = t.is_pre ? (t.local_time || t.status) : t.status;
+                    const vEventTime = t.is_pre ? scheduledStatus : t.status;
                     const vLiveDot = stateClass === 'live' ? '<span class="live-dot"></span>' : '';
                     addSlide(t.league_path || 'teams', `
-                        <div class="slide" data-slide-key="team:${t.away_name}@${t.home_name}" ${flashAttr}>
+                        <div class="slide" data-slide-key="team:${key}" ${flashAttr}>
                             <div class="card ${stateClass} ${doFlash ? 'flash' : ''}" id="card-${key.replace(/[^a-z0-9]/gi,'_')}">
                                 ${stateClass === 'final' ? '<div class="final-badge">F</div>' : ''}
                                 <div class="league-tag">${t.league_label}</div>
                                 ${statusContent}
                                 <div class="teams-grid">
                                     <div class="team-block away ${awayWinClass}">
-                                        <img src="${t.away_logo}" class="team-logo${t.away_is_fav ? ' fav-team-logo' : ''}" onerror="this.style.display='none'">
-                                        <span class="team-abbr ${awayFavCls}">${t.away_name}</span>
+                                        ${t.away_logo ? `<img src="${t.away_logo}" alt="" decoding="async" class="team-logo${t.away_is_fav ? ' fav-team-logo' : ''}" onerror="this.style.display='none'">` : ''}
+                                        <span class="team-abbr ${awayFavCls}">${t.away_rank ? '#' + t.away_rank + ' ' : ''}${t.away_name}</span>
                                         ${t.is_pre && t.away_record
                                             ? `<span class="team-record ${awayFavCls}">${t.away_record}</span>`
                                             : `<span class="team-score-v ${stateClass} ${awayWinClass} ${awayScoreFavCls}">${t.away_score}</span>`}
@@ -428,8 +540,8 @@
                                         ${statusVContent}
                                     </div>
                                     <div class="team-block home ${homeWinClass}">
-                                        <img src="${t.home_logo}" class="team-logo${t.home_is_fav ? ' fav-team-logo' : ''}" onerror="this.style.display='none'">
-                                        <span class="team-abbr ${homeFavCls}">${t.home_name}</span>
+                                        ${t.home_logo ? `<img src="${t.home_logo}" alt="" decoding="async" class="team-logo${t.home_is_fav ? ' fav-team-logo' : ''}" onerror="this.style.display='none'">` : ''}
+                                        <span class="team-abbr ${homeFavCls}">${t.home_rank ? '#' + t.home_rank + ' ' : ''}${t.home_name}</span>
                                         ${t.is_pre && t.home_record
                                             ? `<span class="team-record ${homeFavCls}">${t.home_record}</span>`
                                             : `<span class="team-score-v ${stateClass} ${homeWinClass} ${homeScoreFavCls}">${t.home_score}</span>`}
@@ -441,7 +553,7 @@
                                 </div>
                             </div>
                         </div>
-                    `);
+                    `, [`${t.league_path}:${t.away_name}`, `${t.league_path}:${t.home_name}`]);
                 });
 
 
@@ -453,10 +565,10 @@
                     return num + (['th','st','nd','rd'][(v-20)%10] || ['th','st','nd','rd'][v] || 'th');
                 }
 
-                (data.races || []).forEach(race => {
+                (displayMode === 'ticker' ? [] : (renderData.races || [])).forEach(race => {
                     const sc = race.color_state;
                     const liveDot = sc === 'live' ? '<span class="live-dot"></span>' : '';
-                    const favDriver = (race.drivers || []).find(d => d.is_fav);
+                    const favDriver = (race.drivers || []).find(d => d.is_fav) || (race.drivers || [])[0];
 
                     const flagColors = {Green:'#00E676', Yellow:'#FFD600', Red:'#FF1744', Checkered:'#ffffff', Caution:'#FFD600', Debris:'#FFD600', 'Pre-Race':'#888'};
                     const flagColor = flagColors[race.flag_label] || '#888';
@@ -504,11 +616,11 @@
                 });
 
                 // ─── GOLF SLIDES ───
-                (data.golf || []).forEach(golf => {
+                (displayMode === 'ticker' ? [] : (renderData.golf || [])).forEach(golf => {
                     const sc = golf.color_state;
                     const liveDot = sc === 'live' ? '<span class="live-dot"></span>' : '';
                     const statusBar = `<div class="status-bar ${sc}">${liveDot}${golf.status}</div>`;
-                    const favGolfer = (golf.golfers || []).find(g => g.is_fav);
+                    const favGolfer = (golf.golfers || []).find(g => g.is_fav) || (golf.golfers || [])[0];
 
                     if (favGolfer) {
                         const isGolfOver = sc === 'final';
@@ -543,8 +655,9 @@
                 });
 
                 // ─── SPECIALS + LOCAL SCHEDULE ───
-                [...(data.specials || []), ...(data.local_schedule_items || [])].forEach((sp, i) => {
+                (displayMode === 'ticker' ? [] : [...(renderData.specials || []), ...(renderData.local_schedule_items || [])]).forEach((sp, i) => {
                     const color = sp.color || '#F5A800';
+                    if ((sp.type === 'image' && !sp.image) || (sp.type === 'url' && !sp.url)) return;
                     const specialEl = document.createElement('div');
                     specialEl.className = 'slide';
                     specialEl.dataset.slideKey = `special-${i}:${sp.type}:${sp.title || ''}:${sp.uid || ''}`;
@@ -565,7 +678,8 @@
                                 </div>
                             </div>`;
                     } else if (sp.type === 'rss') {
-                        const dt = [sp.date, sp.time].filter(Boolean).join('  ·  ');
+                        const dateTime = [sp.date, sp.time].filter(Boolean).join('  ·  ');
+                        const dt = dateTime && sp.date_kind === 'published' ? 'Published ' + dateTime : dateTime;
                         const logoHtml = sp.logo ? `<img src="${sp.logo}">` : '';
                         if (sp.is_matchup) {
                             specialEl.innerHTML = `
@@ -609,7 +723,7 @@
                                 <iframe src="${sp.url}"
                                         style="width:100%;height:100%;border:none;display:block;"
                                         title="${sp.url_label || sp.url}"
-                                        sandbox="allow-scripts allow-same-origin allow-popups">
+                                        sandbox="allow-scripts allow-popups">
                                 </iframe>
                             </div>`;
                     } else {
@@ -625,7 +739,7 @@
                 });
 
                 // ─── APPLY SLIDE PLAYLIST ORDER ───
-                const playlist = data.slide_playlist || [];
+                const playlist = renderData.slide_playlist || [];
                 let orderedSlides;
 
                 if (playlist.length) {
@@ -640,7 +754,7 @@
                             const path = item.key.slice(0, item.key.lastIndexOf(':'));
                             const abbr = item.key.slice(item.key.lastIndexOf(':') + 1);
                             (catSlides[path] || []).forEach(el => {
-                                if (el.dataset.slideKey && el.dataset.slideKey.includes(abbr)) {
+                                if (JSON.parse(el.dataset.teamKeys || '[]').includes(`${path}:${abbr}`)) {
                                     orderedSlides.push(el);
                                 }
                             });
@@ -681,56 +795,61 @@
                     orderedKeys.forEach(cat => { if (catSlides[cat]) orderedSlides.push(...catSlides[cat]); });
                 }
 
+                orderedSlides = [...new Set(orderedSlides)];
+                if (!orderedSlides.length) {
+                    const empty = document.createElement('div');
+                    empty.className = 'slide empty-slide';
+                    empty.dataset.slideKey = 'empty';
+                    empty.innerHTML = '<div class="empty-state"><strong>GAMEDAY</strong><span>No games in the selected window</span></div>';
+                    orderedSlides.push(empty);
+                }
                 patchStage(orderedSlides);
+                const activeGameKeys = new Set((renderData.teams || []).map(ScoreboardDisplay.gameKey));
+                previousScores = Object.fromEntries(Object.entries(previousScores).filter(([key]) => activeGameKeys.has(key)));
 
 
                 // ─── BUILD TICKER ───
                 let tickerHtml = '';
-                (data.ticker_parts || []).forEach(section => {
+                (renderData.ticker_parts || []).forEach(section => {
                     tickerHtml += `<span class="tick-item"><span class="tick-label">${section.label}</span></span>`;
-                    section.games.forEach((g, i) => {
-                        const flash = flashIds.has(`${g.away}@${g.home}`);
+                    (section.games || []).forEach((g, i) => {
+                        const flash = flashIds.has(ScoreboardDisplay.gameKey(g));
                         const cls = flash ? 'flash-yellow' : g.color_state;
+                        const away = `${g.away_rank ? '#' + g.away_rank + ' ' : ''}${g.away || ''}`;
+                        const home = `${g.home_rank ? '#' + g.home_rank + ' ' : ''}${g.home || ''}`;
+                        const awayLogo = g.away_logo ? `<img class="tick-logo" decoding="async" src="${g.away_logo}" alt="" onerror="this.hidden=true">` : '';
+                        const homeLogo = g.home_logo ? `<img class="tick-logo" decoding="async" src="${g.home_logo}" alt="" onerror="this.hidden=true">` : '';
                         let gameText;
-                        if (g.winner && g.winner !== 'tie' && (g.color_state === 'final' || g.color_state === 'live')) {
-                            const awayTag = g.winner === 'away'
-                                ? `<span style="font-weight:900">${g.away}</span>`
-                                : g.away;
-                            const homeTag = g.winner === 'home'
-                                ? `<span style="font-weight:900">${g.home}</span>`
-                                : g.home;
-                            if (g.color_state === 'final') {
-                                gameText = `${awayTag} ${g.away_score}  ${homeTag} ${g.home_score}  F`;
-                            } else {
-                                const statusMatch = g.text.match(/\([^)]+\)$/);
-                                gameText = `${awayTag} ${g.away_score}  ${homeTag} ${g.home_score}  ${statusMatch ? statusMatch[0] : ''}`;
-                            }
+                        if (g.away && g.home && g.color_state !== 'pre') {
+                            const a = g.winner === 'away' ? `<strong>${away}</strong>` : away;
+                            const h = g.winner === 'home' ? `<strong>${home}</strong>` : home;
+                            const status = g.status || (g.color_state === 'final' ? 'FINAL' : '');
+                            gameText = `${awayLogo}${a} <b>${g.away_score ?? '—'}</b> ${homeLogo}${h} <b>${g.home_score ?? '—'}</b> <small>${status}</small>`;
+                        } else if (g.away && g.home) {
+                            // Provider text includes the configured schedule time and event state.
+                            const schedule = !g.game_state || g.game_state === 'scheduled' ? (g.local_time || g.text || g.status || '') : (g.status || g.text || '');
+                            gameText = `${awayLogo}${away} @ ${homeLogo}${home} <small>${schedule}</small>`;
                         } else {
-                            gameText = g.text;
+                            gameText = g.text || '';
                         }
                         tickerHtml += `<span class="tick-item ${cls}">${gameText}</span>`;
-                        if (i < section.games.length - 1) tickerHtml += `<span class="tick-sep">·</span>`;
+                        if (i < section.games.length - 1) tickerHtml += '<span class="tick-sep">·</span>';
                     });
-                    tickerHtml += `<span class="tick-sep tick-sep">  ///  </span>`;
+                    tickerHtml += '<span class="tick-sep"> /// </span>';
                 });
 
-
                 function isToday(isoStr) {
-                    if (!isoStr) return false;
-                    const d = new Date(isoStr);
-                    const now = new Date();
-                    return d.getFullYear() === now.getFullYear() &&
-                           d.getMonth() === now.getMonth() &&
-                           d.getDate() === now.getDate();
+                    return Boolean(isoStr) && ScoreboardDisplay.dayKey(isoStr, clockTimezone) === ScoreboardDisplay.dayKey(new Date(), clockTimezone);
                 }
-                (data.local_schedule_items || []).filter(i => i.type === 'schedule' && isToday(i.event_iso)).forEach(item => {
+                (renderData.local_schedule_items || []).filter(i => i.type === 'schedule' && isToday(i.event_iso)).forEach(item => {
                     const dt = [item.date, item.time].filter(Boolean).join('   ');
                     const aTag = item.away_is_fav ? `<span class="fav-team-abbr">${item.away_team}</span>` : item.away_team;
                     const hTag = item.home_is_fav ? `<span class="fav-team-abbr">${item.home_team}</span>` : item.home_team;
                     tickerHtml += `<span class="tick-item"><span class="tick-label">${item.label}</span>${aTag} @ ${hTag}${dt ? ' | ' + dt : ''}</span><span class="tick-sep">  ///  </span>`;
                 });
-                (data.local_schedule_items || []).filter(i => i.type === 'rss' && isToday(i.event_iso)).forEach(item => {
-                    const dt = [item.date, item.time].filter(Boolean).join('   ');
+                (renderData.local_schedule_items || []).filter(i => i.type === 'rss' && isToday(i.event_iso)).forEach(item => {
+                    const dateTime = [item.date, item.time].filter(Boolean).join('   ');
+                    const dt = dateTime && item.date_kind === 'published' ? 'Published ' + dateTime : dateTime;
                     let text = item.title;
                     if (item.is_matchup) {
                         const aTag = item.away_is_fav ? `<span class="fav-team-abbr">${item.away_team}</span>` : item.away_team;
@@ -740,17 +859,30 @@
                     tickerHtml += `<span class="tick-item"><span class="tick-label">${item.label}</span>${text}${dt ? ' | ' + dt : ''}</span><span class="tick-sep">  ///  </span>`;
                 });
 
-                if (tickerHtml && tickerHtml !== lastTickerHtml) {
+                tickerHtml = tickerHtml || '<span class="tick-item ticker-empty">No games in the selected window · Check favorites and leagues in Settings</span>';
+                if (tickerHtml !== lastTickerHtml) {
                     lastTickerHtml = tickerHtml;
-                    const ticker = document.getElementById('ticker-text');
-                    ticker.innerHTML = tickerHtml;
-                    // Content changed — preserve current scroll position and keep
-                    // the same pixel-per-second speed for the new width.
-                    resetTickerAnimation(true);
+                    const ticker = tickerElement;
+                    // Two identical adjacent segments create a continuous loop without
+                    // the old empty viewport gap on long/ultrawide displays.
+                    ticker.innerHTML = `<span class="ticker-segment">${tickerHtml}</span><span class="ticker-segment" aria-hidden="true">${tickerHtml}</span>`;
+                    resetTickerAnimation();
                 }
+                lastSuccessfulFetch = Date.now();
+                const connectionStatus = document.getElementById('connection-status');
+                connectionStatus.textContent = data.cache_stale ? 'Sports feed interrupted · Scores may be outdated' : '';
+                connectionStatus.hidden = !data.cache_stale;
 
-
-            } catch(e) { console.error('Data update error:', e); }
+            } catch(e) {
+                console.warn('Keeping previous scoreboard data:', e);
+                const status = document.getElementById('connection-status');
+                status.textContent = lastSuccessfulFetch ? 'Connection interrupted · Showing saved scores' : 'Waiting for score service · Retrying automatically';
+                status.hidden = false;
+            } finally {
+                clearTimeout(timeout);
+                dataUpdateInFlight = false;
+                dataPollTimer = setTimeout(updateData, browserRefreshSeconds * 1000);
+            }
         }
 
 
@@ -762,10 +894,16 @@
         let tickerLoopLast = 0;
 
         function resetTickerAnimation() {
-            const ticker = document.getElementById('ticker-text');
+            const ticker = tickerElement;
             if (!ticker) return;
-            tickerTotal = ticker.scrollWidth || 0;
-            if (tickerTotal > 0) tickerOffset = tickerOffset % tickerTotal;
+            const first = ticker.querySelector('.ticker-segment');
+            tickerTotal = first ? first.getBoundingClientRect().width : ticker.scrollWidth;
+            if (tickerTotal > 0) tickerOffset %= tickerTotal;
+            if (displayMode === 'scoreboard' || document.hidden) {
+                if (tickerLoopRAF) cancelAnimationFrame(tickerLoopRAF);
+                tickerLoopRAF = null;
+                return;
+            }
             if (!tickerLoopRAF) {
                 tickerLoopLast = 0;
                 tickerLoopRAF = requestAnimationFrame(tickerLoop);
@@ -773,21 +911,30 @@
         }
 
         function tickerLoop(ts) {
+            tickerLoopRAF = null;
+            if (displayMode === 'scoreboard' || document.hidden) return;
+            const ticker = tickerElement;
+            if (ticker && tickerTotal > 0) {
+                if (!tickerLoopLast) tickerLoopLast = ts;
+                const dt = Math.min((ts - tickerLoopLast) / 1000, 0.1);
+                tickerLoopLast = ts;
+                tickerOffset = (tickerOffset + tickerSpeed * dt) % tickerTotal;
+                ticker.style.transform = `translate3d(${-tickerOffset}px, 0, 0)`;
+            }
             tickerLoopRAF = requestAnimationFrame(tickerLoop);
-            const ticker = document.getElementById('ticker-text');
-            if (!ticker || tickerTotal <= 0) return;
-            if (!tickerLoopLast) tickerLoopLast = ts;
-            let dt = (ts - tickerLoopLast) / 1000;
-            tickerLoopLast = ts;
-            if (dt > 2) dt = 2; // hold position if tab was hidden
-            tickerOffset += tickerSpeed * dt;
-            if (tickerOffset >= tickerTotal) tickerOffset %= tickerTotal;
-            ticker.style.transform = `translateX(${-tickerOffset}px)`;
         }
 
+        document.addEventListener('visibilitychange', () => {
+            resetTickerAnimation();
+            if (!document.hidden) { ensureSlideshow(); updateData(); }
+        });
+        document.getElementById('ticker-text').addEventListener('load', resetTickerAnimation, true);
+        if ('ResizeObserver' in window) {
+            const tickerSizeObserver = new ResizeObserver(resetTickerAnimation);
+            tickerSizeObserver.observe(document.getElementById('main-footer'));
+        }
 
         updateData();
-        setInterval(updateData, 30 * 1000);
         resetTickerAnimation(); // animate initial "LOADING..." text
     </script>
 </body>

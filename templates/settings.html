@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ username }} Settings</title>
-    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;900&family=Barlow:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;900&family=Barlow:wght@400;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/static/css/main.css">
 </head>
 <body class="pg-settings">
@@ -14,6 +15,13 @@
     </div>
 </header>
 
+<nav class="settings-nav" aria-label="Settings categories">
+    <a href="#settings-display">Display</a><a href="#settings-refresh">Updates</a>
+    <a href="#settings-favorites">Teams</a><a href="#settings-logo">Logo</a>
+    <a href="#settings-slides">Slides</a><a href="#settings-local">Local</a>
+    <a href="#settings-admin">Account</a>
+</nav>
+<div id="settings-message" role="status" aria-live="polite"></div>
 <div class="container">
 
     <div class="section-pair">
@@ -37,6 +45,11 @@
     </div>
 
 
+    <div class="section">
+        <label for="football_priority"><input type="checkbox" id="football_priority"> Prioritize Texas A&amp;M, SEC, Top 25 &amp; NFL</label>
+        <p>Includes college football and NFL without removing your favorites. College slides are ordered Texas A&amp;M first, then SEC, then other ranked teams. Custom playlist order remains available.</p>
+    </div>
+
     <!-- ── Server Options (server mode only) ── -->
     <div class="section server-only" id="server-options-section">
         <div class="section-title">Server Options</div>
@@ -55,7 +68,7 @@
         <div class="info-box">
             <div class="info-box-title">DATA CACHE</div>
             <p style="color:#666;font-family:'Barlow',sans-serif;font-size:14px;margin-bottom:8px;">
-                Sports scores are downloaded every 11 minutes in the background.
+                Sports scores refresh every 30 seconds while games are live, or every 5 minutes otherwise. Failed requests retain the last successful slate.
             </p>
             <div id="cache-status-text" style="font-size:14px;font-family:'Barlow',sans-serif;color:#555;">Last updated: —</div>
             <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
@@ -134,9 +147,24 @@
 
     </div><!-- /section-pair: Device Mode + Server/Kiosk -->
 
+    <section class="section">
+        <div class="section-title" id="settings-refresh">Score updates</div>
+        <p>Provider data is not instantaneous. Requests are shared between displays; failures use backoff and retain the last successful scores.</p>
+        <div class="row">
+            <div><label for="refresh_live">Live games (seconds)</label><input type="number" id="refresh_live" min="30" max="300" step="1" value="30"></div>
+            <div><label for="refresh_upcoming">Upcoming games (seconds)</label><input type="number" id="refresh_upcoming" min="60" max="3600" step="1" value="300"></div>
+        </div>
+        <div class="row">
+            <div><label for="refresh_idle">No active games (seconds)</label><input type="number" id="refresh_idle" min="300" max="21600" step="1" value="900"></div>
+            <div><label for="refresh_final">Completed games (seconds)</label><input type="number" id="refresh_final" min="300" max="86400" step="1" value="3600"></div>
+        </div>
+        <button class="btn" type="button" id="safe-defaults-btn" onclick="restoreSafeDefaults()">RESTORE SAFE TIMINGS</button>
+        <p>Restores clock format, display mode, animation and update timing. Keeps favorites, leagues, timezone, colors, logo, slides, credentials and pairing.</p>
+    </section>
+
     <!-- ── Display Settings ── -->
     <div class="section">
-        <div class="section-title">Display Settings</div>
+        <div class="section-title" id="settings-display">Display Settings</div>
         <div class="row">
             <div>
                 <label>Scoreboard Name</label>
@@ -158,6 +186,26 @@
                     <option value="America/Anchorage">Alaska</option>
                     <option value="Pacific/Honolulu">Hawaii</option>
                 </select>
+            </div>
+            <div>
+                <label for="clock_format">Clock</label>
+                <select id="clock_format">
+                    <option value="12h">12-hour (12:00 AM / PM)</option>
+                    <option value="24h">24-hour (00:00–23:59)</option>
+                    <option value="hidden">Hidden</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="row" style="margin-top:20px;">
+            <div>
+                <label for="display_mode">Display style</label>
+                <select id="display_mode">
+                    <option value="hybrid">Hybrid — scorecards and ticker</option>
+                    <option value="scoreboard">Traditional scoreboard — scorecards</option>
+                    <option value="ticker">LED ticker — horizontal scores</option>
+                </select>
+                <p>LED ticker fills the display with scrolling scores and logos. It does not require a clock or logo slide.</p>
             </div>
         </div>
 
@@ -358,7 +406,10 @@
 
     <!-- ── Logo ── -->
     <div class="section section-compact">
-        <div class="section-title">Logo</div>
+        <div class="section-title" id="settings-logo">Logo</div>
+        <label><input type="checkbox" id="show_logo_slide"> Show custom logo slide</label>
+        <button class="btn" type="button" onclick="removeLogo()">REMOVE UPLOADED LOGO</button>
+        <p>Hiding the slide keeps your uploaded logo file.</p>
         <div id="logo-preview-wrap" style="text-align:center;margin-bottom:12px;min-height:80px;">
             <img id="logo-preview" src="/static/uploads/logo.png" alt="Current logo"
                  style="max-width:100%;max-height:160px;object-fit:contain;border-radius:8px;border:1px solid #2a2a2a;background:#000;padding:8px;"
@@ -368,7 +419,7 @@
         <div class="upload-area" onclick="document.getElementById('logo-input').click()">
             <p>Click to upload logo (PNG recommended)</p>
         </div>
-        <input type="file" id="logo-input" accept="image/*" style="display:none" onchange="uploadLogo(this)">
+        <input type="file" id="logo-input" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none" onchange="uploadLogo(this)">
         <p id="upload-status" style="color:#555;margin-top:10px;font-family:'Barlow',sans-serif;font-size:15px;"></p>
     </div>
 
@@ -389,13 +440,13 @@
 
     <!-- ── Slide Order ── -->
     <div class="section" id="slide-order-section">
-        <div class="section-title">Slide Order</div>
+        <div class="section-title" id="settings-slides">Slide Order</div>
         <p style="color:#666;font-family:'Barlow',sans-serif;font-size:15px;margin-bottom:14px;">
             Drag to set the exact order every slide appears on screen. Sport cards only show when that team/driver/golfer has an active event.
         </p>
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-wrap:wrap;">
             <label style="margin:0;font-size:16px;color:#888;font-family:'Barlow',sans-serif;">Each slide shows for</label>
-            <input type="number" id="slide_duration" min="2" max="120" step="1"
+            <input type="number" id="slide_duration" min="1" max="3600" step="1"
                    style="width:72px;padding:8px 10px;background:#000;border:2px solid #2a2a2a;color:white;border-radius:8px;font-size:18px;font-family:'Barlow Condensed',sans-serif;outline:none;text-align:center;">
             <label style="margin:0;font-size:16px;color:#888;font-family:'Barlow',sans-serif;">seconds</label>
         </div>
@@ -406,6 +457,10 @@
             <button class="trans-btn" data-val="slide-top"   onclick="setTransition('slide-top')">↑ FROM TOP</button>
             <button class="trans-btn" data-val="slide-bottom" onclick="setTransition('slide-bottom')">↓ FROM BELOW</button>
             <button class="trans-btn" data-val="fade"        onclick="setTransition('fade')">◎ FADE</button>
+        </div>
+        <div class="row" style="margin-bottom:16px;">
+            <div><label for="logo_slide_duration">Logo slide (seconds)</label><input type="number" id="logo_slide_duration" min="1" max="3600" value="8"></div>
+            <div><label for="transition_duration_ms">Transition animation (milliseconds)</label><input type="number" id="transition_duration_ms" min="0" max="2000" step="50" value="500"></div>
         </div>
         <div id="playlist-chips" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
         <p style="color:#444;font-family:'Barlow',sans-serif;font-size:13px;margin-top:10px;">
@@ -418,7 +473,7 @@
 
     <!-- ── Favorite Teams ── -->
     <div class="section" style="flex:1;min-width:300px;">
-        <div class="section-title">Favorite Teams (Score Cards)</div>
+        <div class="section-title" id="settings-favorites">Favorite Teams (Score Cards)</div>
         <p style="color:#666;font-family:'Barlow',sans-serif;font-size:15px;margin-bottom:14px;">Select a league to browse teams. Click to add/remove.</p>
         <select id="team-league-select" onchange="loadTeams(this.value)">
             <option value="">— Pick a league —</option>
@@ -657,7 +712,7 @@
 
     <!-- ── Local Schedule ── -->
     <div class="section">
-        <div class="section-title">Local Schedule</div>
+        <div class="section-title" id="settings-local">Local Schedule</div>
         <p style="color:#666;font-family:'Barlow',sans-serif;font-size:15px;margin-bottom:20px;">
             Enter local games (high school, club, etc.) to show as slides and in the ticker — no live scoring. Optionally pull from an RSS feed.
         </p>
@@ -842,7 +897,8 @@
 
     <!-- ── Admin Credentials ── -->
     <div class="section">
-        <div class="section-title">Admin Credentials</div>
+        <div class="section-title" id="settings-admin">Admin Credentials</div>
+        <p id="default-password-warning" hidden class="settings-warning">Default credentials are still enabled. Choose a new password before regular use.</p>
         <p class="cred-note">Change the username/password used to access this settings page.</p>
         <div class="row">
             <div>
@@ -860,6 +916,7 @@
 
 <div class="toast" id="toast">SAVED</div>
 
+<script src="/static/js/display.js"></script>
 <script>
     let currentSettings = {};
     let selectedTeams = [];
@@ -929,6 +986,20 @@
         return TEAM_ICONS[leaguePath.split('/')[0]] || '📺';
     }
 
+    function addMoveButtons(element, index, total, move) {
+        const controls = document.createElement('span');
+        controls.className = 'move-controls';
+        for (const [delta, label] of [[-1, 'Move earlier'], [1, 'Move later']]) {
+            const button = document.createElement('button');
+            button.type = 'button'; button.textContent = delta < 0 ? '↑' : '↓';
+            button.setAttribute('aria-label', label);
+            button.disabled = index + delta < 0 || index + delta >= total;
+            button.addEventListener('click', event => { event.stopPropagation(); move(delta); });
+            controls.appendChild(button);
+        }
+        element.appendChild(controls);
+    }
+
     function buildPlaylistChip(item, idx) {
         const el = document.createElement('div');
         el.className = 'pl-chip';
@@ -943,20 +1014,20 @@
             const sport = path.split('/')[0] || '';
             const league = path.split('/')[1] || '';
             const meta = teamMeta[item.key] || {};
-            const color = meta.color ? `#${meta.color.replace('#','')}` : '#555';
+            const color = /^#?[0-9a-f]{6}$/i.test(meta.color || '') ? '#' + meta.color.replace('#','') : '#555';
             iconHtml = meta.logo
-                ? `<img src="${meta.logo}" style="width:28px;height:28px;object-fit:contain;" onerror="this.style.display='none'">`
+                ? `<img src="${safeSettingsUrl(meta.logo)}" style="width:28px;height:28px;object-fit:contain;" onerror="this.style.display='none'">`
                 : `<span style="font-size:18px;">${_sportIcon(path)}</span>`;
-            nameHtml = `<span class="pl-chip-name" style="color:${color};">${abbr}</span>`;
+            nameHtml = `<span class="pl-chip-name" style="color:${color};">${escapeHtml(abbr)}</span>`;
             badgeHtml = `<span class="pl-chip-badge">${(league || sport).toUpperCase()}</span>`;
         } else if (item.type === 'driver') {
             const series = (item.series || '').split('/')[1] || 'RACING';
             iconHtml = `<span style="font-size:18px;">🏎️</span>`;
-            nameHtml = `<span class="pl-chip-name">${item.car ? '#'+item.car+' ' : ''}${item.name}</span>`;
+            nameHtml = `<span class="pl-chip-name">${item.car ? '#'+item.car+' ' : ''}${escapeHtml(item.name)}</span>`;
             badgeHtml = `<span class="pl-chip-badge">${series.toUpperCase()}</span>`;
         } else if (item.type === 'golfer') {
             iconHtml = `<span style="font-size:18px;">⛳</span>`;
-            nameHtml = `<span class="pl-chip-name">${item.name}</span>`;
+            nameHtml = `<span class="pl-chip-name">${escapeHtml(item.name)}</span>`;
             badgeHtml = `<span class="pl-chip-badge">PGA</span>`;
         } else if (item.type === 'special') {
             const sp = specials.find(s => s.uid === item.uid);
@@ -964,7 +1035,7 @@
             const title = sp ? (sp.title || sp.url_label || sp.url || '(no title)') : '(deleted)';
             const icons2 = {text: '📝', image: '🖼', url: '🔗'};
             iconHtml = `<span style="font-size:18px;">${icons2[t] || '📝'}</span>`;
-            nameHtml = `<span class="pl-chip-name">${title}</span>`;
+            nameHtml = `<span class="pl-chip-name">${escapeHtml(title)}</span>`;
             badgeHtml = `<span class="pl-chip-badge">${t.toUpperCase()}</span>`;
         } else if (item.type === 'logo') {
             iconHtml = `<span style="font-size:18px;">🖼️</span>`;
@@ -987,6 +1058,11 @@
                 ${badgeHtml}
             </div>`;
 
+        addMoveButtons(el, idx, slidePlaylist.length, delta => {
+            const [moved] = slidePlaylist.splice(idx, 1);
+            slidePlaylist.splice(idx + delta, 0, moved);
+            renderPlaylist();
+        });
         el.addEventListener('dragstart', e => {
             _plDragSrc = idx;
             e.dataTransfer.effectAllowed = 'move';
@@ -1314,7 +1390,7 @@
                 <div class="kiosk-row${k.online ? ' online' : ''}">
                     <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${k.online ? '#00E676' : '#444'};flex-shrink:0;"></span>
                     <div style="flex:1;">
-                        <span style="font-size:16px;font-weight:700;letter-spacing:1px;">${k.name}</span>
+                        <span style="font-size:16px;font-weight:700;letter-spacing:1px;">${escapeHtml(k.name)}</span>
                         <span style="color:#555;font-family:'Barlow',sans-serif;font-size:13px;margin-left:10px;">${k.ip || ''}</span>
                         ${k.online ? '<span style="color:#00E676;font-size:12px;font-family:\'Barlow\',sans-serif;margin-left:8px;">ONLINE</span>' : ''}
                     </div>
@@ -1342,7 +1418,7 @@
             const data = await res.json();
             if (data.updated_at) {
                 const dt = new Date(data.updated_at);
-                el.textContent = `Last updated: ${dt.toLocaleTimeString()} · ${data.leagues_cached.length} league(s) cached`;
+                el.textContent = `Last updated: ${dt.toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit', hour12: true, timeZone: currentSettings.timezone || 'America/Chicago'})} · ${data.leagues_cached.length} league(s) cached${data.stale ? ' · OFFLINE / STALE DATA' : ''}`;
                 el.style.color = '#00E676';
             } else {
                 el.textContent = 'Cache not yet populated — scores will load on first request.';
@@ -1474,7 +1550,7 @@
                 `<span class="sp-chip${sdays.includes(d) ? ' active' : ''}" data-val="${d}">${d}</span>`
             ).join('');
             const imgPreview = sp.image
-                ? `<img src="${sp.image}" class="sp-img-preview">`
+                ? `<img src="${safeSettingsUrl(sp.image)}" class="sp-img-preview">`
                 : `<div class="sp-img-placeholder">No image</div>`;
 
             const item = document.createElement('div');
@@ -1496,9 +1572,9 @@
                 </div>
                 <div class="sp-text-fields" style="display:${sptype==='text'?'block':'none'}">
                     <div class="special-item-fields">
-                        <input type="text" placeholder="Headline (e.g. HAPPY HOUR)" value="${sp.title||''}" data-field="title">
-                        <input type="text" placeholder="Body text (optional)" value="${sp.body||''}" data-field="body">
-                        <input type="color" value="${sp.color||'#F5A800'}" data-field="color" title="Accent color">
+                        <input type="text" placeholder="Headline (e.g. HAPPY HOUR)" value="${escapeHtml(sp.title||'')}" data-field="title">
+                        <input type="text" placeholder="Body text (optional)" value="${escapeHtml(sp.body||'')}" data-field="body">
+                        <input type="color" value="${escapeHtml(sp.color||'#F5A800')}" data-field="color" title="Accent color">
                     </div>
                 </div>
                 <div class="sp-image-fields" style="display:${sptype==='image'?'block':'none'}">
@@ -1510,8 +1586,8 @@
                 </div>
                 <div class="sp-url-fields" style="display:${sptype==='url'?'block':'none'}">
                     <div class="special-item-fields" style="grid-template-columns:1fr 1fr;">
-                        <input type="text" placeholder="Label (e.g. Dashboard)" value="${sp.url_label||''}" data-field="url_label">
-                        <input type="url" placeholder="https://..." value="${sp.url||''}" data-field="url">
+                        <input type="text" placeholder="Label (e.g. Dashboard)" value="${escapeHtml(sp.url_label||'')}" data-field="url_label">
+                        <input type="url" placeholder="https://..." value="${escapeHtml(sp.url||'')}" data-field="url">
                     </div>
                     <p style="color:#555;font-family:'Barlow',sans-serif;font-size:13px;margin-top:6px;">Displayed as a fullscreen embedded page. Works best with local network URLs.</p>
                 </div>
@@ -1590,6 +1666,11 @@
                         : days.filter(d => d !== val);
                 });
             });
+            addMoveButtons(item.querySelector('.special-item-top'), idx, specials.length, delta => {
+                const [moved] = specials.splice(idx, 1);
+                specials.splice(idx + delta, 0, moved);
+                renderSpecials(); syncPlaylist();
+            });
             item.addEventListener('dragstart', e => {
                 specialDragSrc = idx;
                 e.dataTransfer.effectAllowed = 'move';
@@ -1640,12 +1721,12 @@
                 <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
                     <div class="rss-logo-preview-wrap" style="flex-shrink:0;">
                         ${feed.logo
-                            ? `<img src="${feed.logo}" style="height:44px;max-width:80px;object-fit:contain;border-radius:6px;border:1px solid #2a2a2a;background:#000;">`
+                            ? `<img src="${safeSettingsUrl(feed.logo)}" style="height:44px;max-width:80px;object-fit:contain;border-radius:6px;border:1px solid #2a2a2a;background:#000;">`
                             : `<div style="width:56px;height:44px;border:1px dashed #333;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#2a2a2a;font-size:10px;font-family:'Barlow',sans-serif;text-align:center;line-height:1.2;">NO<br>LOGO</div>`}
                     </div>
                     <div style="flex:1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;">
-                        <span class="rss-cat-badge" style="background:#0a1a2a;border:1px solid #099afc;color:#099afc;font-size:11px;font-weight:700;letter-spacing:2px;padding:3px 8px;border-radius:4px;white-space:nowrap;display:${feed.category ? 'inline' : 'none'};">${feed.category || ''}</span>
-                        <span class="rss-header-label" style="font-size:20px;font-weight:900;color:${enabled ? 'white' : '#555'};letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${feed.label || '<em style="color:#333;font-style:normal;font-size:14px;font-weight:400;">no label</em>'}</span>
+                        <span class="rss-cat-badge" style="background:#0a1a2a;border:1px solid #099afc;color:#099afc;font-size:11px;font-weight:700;letter-spacing:2px;padding:3px 8px;border-radius:4px;white-space:nowrap;display:${feed.category ? 'inline' : 'none'};">${escapeHtml(feed.category || '')}</span>
+                        <span class="rss-header-label" style="font-size:20px;font-weight:900;color:${enabled ? 'white' : '#555'};letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${feed.label ? escapeHtml(feed.label) : 'no label'}</span>
                     </div>
                     <button class="rss-toggle-btn" style="flex-shrink:0;padding:8px 18px;border-radius:20px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;cursor:pointer;border:2px solid ${enabled ? '#00E676' : '#333'};background:${enabled ? '#001a07' : '#0a0a0a'};color:${enabled ? '#00E676' : '#555'};transition:0.15s;">${enabled ? 'ENABLED' : 'DISABLED'}</button>
                     <button class="rss-del-btn" style="flex-shrink:0;background:none;border:1px solid #333;color:#555;border-radius:8px;padding:9px 14px;cursor:pointer;font-size:18px;transition:0.15s;" title="Remove">✕</button>
@@ -1654,7 +1735,7 @@
                 <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;">
                     <div style="flex:1;min-width:200px;">
                         <label style="display:block;font-size:13px;color:#555;font-family:'Barlow',sans-serif;margin-bottom:4px;">RSS FEED URL</label>
-                        <input type="url" class="rss-url-input" value="${feed.url || ''}" placeholder="Paste any school calendar or RSS feed URL"
+                        <input type="url" class="rss-url-input" value="${escapeHtml(feed.url || '')}" placeholder="Paste any school calendar or RSS feed URL"
                             style="width:100%;box-sizing:border-box;padding:10px 14px;background:#111;border:2px solid #2a2a2a;color:white;border-radius:10px;font-size:16px;font-family:'Barlow',sans-serif;outline:none;">
                         <div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;">
                             <button class="rss-detect-btn sp-img-btn" style="font-size:13px;padding:6px 14px;">DETECT FEED</button>
@@ -1663,7 +1744,7 @@
                     </div>
                     <div style="width:130px;">
                         <label style="display:block;font-size:13px;color:#555;font-family:'Barlow',sans-serif;margin-bottom:4px;">LABEL</label>
-                        <input type="text" class="rss-label-input" value="${feed.label || ''}" placeholder="AUBURN" maxlength="20"
+                        <input type="text" class="rss-label-input" value="${escapeHtml(feed.label || '')}" placeholder="AUBURN" maxlength="20"
                             style="width:100%;box-sizing:border-box;padding:10px 14px;background:#111;border:2px solid #2a2a2a;color:white;border-radius:10px;font-size:16px;font-family:'Barlow',sans-serif;outline:none;">
                     </div>
                     <div style="width:150px;">
@@ -1691,7 +1772,7 @@
             el.querySelector('.rss-url-input').addEventListener('input', e => { rssFeeds[idx].url = e.target.value; });
             el.querySelector('.rss-label-input').addEventListener('input', e => {
                 rssFeeds[idx].label = e.target.value;
-                el.querySelector('.rss-header-label').innerHTML = e.target.value || '<em style="color:#333;font-style:normal;font-size:14px;font-weight:400;">no label</em>';
+                el.querySelector('.rss-header-label').textContent = e.target.value || 'no label';
             });
             el.querySelector('.rss-cat-select').addEventListener('change', e => {
                 rssFeeds[idx].category = e.target.value;
@@ -1759,7 +1840,7 @@
                     if (data.url) {
                         rssFeeds[idx].logo = data.url;
                         const wrap = el.querySelector('.rss-logo-preview-wrap');
-                        wrap.innerHTML = `<img src="${data.url}" style="height:44px;max-width:80px;object-fit:contain;border-radius:6px;border:1px solid #2a2a2a;background:#000;">`;
+                        wrap.innerHTML = `<img src="${safeSettingsUrl(data.url)}" style="height:44px;max-width:80px;object-fit:contain;border-radius:6px;border:1px solid #2a2a2a;background:#000;">`;
                         logoBtn.textContent = 'CHANGE LOGO';
                     } else { logoBtn.textContent = 'UPLOAD FAILED'; }
                 } catch(e) { logoBtn.textContent = 'UPLOAD FAILED'; }
@@ -1788,13 +1869,13 @@
             el.className = 'schedule-entry';
             el.innerHTML = `
                 <input type="checkbox" title="Enabled" ${item.enabled !== false ? 'checked' : ''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--accent);flex-shrink:0;">
-                <input type="text" placeholder="Label (HS FOOTBALL)" value="${item.label||''}" style="width:140px;" data-field="label">
-                <input type="text" placeholder="Away Team" value="${item.away_team||''}" style="width:120px;" data-field="away_team">
+                <input type="text" placeholder="Label (HS FOOTBALL)" value="${escapeHtml(item.label||'')}" style="width:140px;" data-field="label">
+                <input type="text" placeholder="Away Team" value="${escapeHtml(item.away_team||'')}" style="width:120px;" data-field="away_team">
                 <span class="sch-at">@</span>
-                <input type="text" placeholder="Home Team" value="${item.home_team||''}" style="width:120px;" data-field="home_team">
-                <input type="text" placeholder="Date (Fri Oct 4)" value="${item.date||''}" style="width:110px;" data-field="date">
-                <input type="text" placeholder="Time (7:00 PM)" value="${item.time||''}" style="width:100px;" data-field="time">
-                <input type="text" placeholder="Location (opt.)" value="${item.location||''}" style="flex:1;min-width:100px;" data-field="location">
+                <input type="text" placeholder="Home Team" value="${escapeHtml(item.home_team||'')}" style="width:120px;" data-field="home_team">
+                <input type="text" placeholder="Date (Fri Oct 4)" value="${escapeHtml(item.date||'')}" style="width:110px;" data-field="date">
+                <input type="text" placeholder="Time (7:00 PM)" value="${escapeHtml(item.time||'')}" style="width:100px;" data-field="time">
+                <input type="text" placeholder="Location (opt.)" value="${escapeHtml(item.location||'')}" style="flex:1;min-width:100px;" data-field="location">
                 <button class="sch-del" title="Remove">✕</button>`;
             el.querySelector('input[type=checkbox]').addEventListener('change', e => { scheduleItems[idx].enabled = e.target.checked; });
             el.querySelectorAll('[data-field]').forEach(inp => {
@@ -1816,8 +1897,15 @@
 
     // ── Load settings ──
 
+    let settingsReady = false;
+    const escapeHtml = ScoreboardDisplay.escapeHtml;
+    const safeSettingsUrl = value => escapeHtml(ScoreboardDisplay.safeUrl(value));
     async function loadSettings() {
+        settingsReady = false;
+        document.querySelector('header .btn-save').disabled = true;
         const res = await fetch('/api/settings');
+        if (res.status === 401) { window.location.href = '/login'; return; }
+        if (!res.ok) throw new Error('Could not load settings');
         currentSettings = await res.json();
 
         const mode = currentSettings.device_mode || 'server';
@@ -1889,7 +1977,18 @@
         document.querySelectorAll('.font-btn').forEach(b =>
             b.classList.toggle('active', b.dataset.font === fontPrimary));
         document.getElementById('admin_username').value = currentSettings.admin_credentials?.username || 'admin';
+        document.getElementById('admin_password').value = '';
+        const warning = document.getElementById('default-password-warning');
+        warning.hidden = !currentSettings.admin_credentials?.default_password;
 
+        document.getElementById('clock_format').value = ['12h', '24h', 'hidden'].includes(currentSettings.clock_format) ? currentSettings.clock_format : '12h';
+        document.getElementById('display_mode').value = currentSettings.display_mode || 'hybrid';
+        const refresh = currentSettings.score_refresh || {};
+        for (const [id, key, fallback] of [['refresh_live','live_seconds',30], ['refresh_upcoming','upcoming_seconds',300], ['refresh_idle','idle_seconds',900], ['refresh_final','final_seconds',3600]]) {
+            document.getElementById(id).value = refresh[key] ?? fallback;
+        }
+        document.getElementById('show_logo_slide').checked = currentSettings.show_logo_slide !== false;
+        document.getElementById('football_priority').checked = currentSettings.football_priority !== false;
         const tzSel = document.getElementById('timezone');
         [...tzSel.options].forEach(o => o.selected = (o.value === currentSettings.timezone));
 
@@ -1930,6 +2029,8 @@
         // uid migration: ensure all specials have UIDs before syncPlaylist
         specials.forEach((sp, i) => { if (!sp.uid) sp.uid = `sp-${Date.now()}-${i}`; });
         document.getElementById('slide_duration').value = currentSettings.slide_duration || 8;
+        document.getElementById('logo_slide_duration').value = currentSettings.logo_slide_duration || 8;
+        document.getElementById('transition_duration_ms').value = currentSettings.transition_duration_ms ?? 500;
         setTransition(currentSettings.slide_transition || 'slide-right');
 
         const tickerSpeed = currentSettings.ticker_speed || 120;
@@ -1969,6 +2070,8 @@
             document.getElementById('update-current-ver').textContent = upd.current || '—';
         });
 
+        settingsReady = true;
+        document.querySelector('header .btn-save').disabled = false;
         // Load mode-specific data
         if (mode === 'server') {
             loadKiosks();
@@ -1982,6 +2085,9 @@
     // ── Save settings ──
 
     async function saveSettings() {
+        if (!settingsReady) { showToast('Wait for settings to finish loading.'); return; }
+        const invalid = [...document.querySelectorAll('input,select,textarea')].find(el => el.offsetParent !== null && !el.checkValidity());
+        if (invalid) { invalid.reportValidity(); invalid.focus(); showToast('Please correct the highlighted setting.'); return; }
         const leagues = [...document.querySelectorAll('.league-check.selected')].map(el => el.dataset.val);
         const league_conferences = {};
         document.querySelectorAll('#conf-grid .conf-chips').forEach(chips => {
@@ -2048,6 +2154,16 @@
             font_primary:   document.querySelector('.font-btn.active')?.dataset.font || 'Barlow Condensed',
             city:           document.getElementById('city').value,
             timezone:       document.getElementById('timezone').value,
+            clock_format:   document.getElementById('clock_format').value,
+            display_mode: document.getElementById('display_mode').value,
+            score_refresh: {
+                live_seconds: Number(document.getElementById('refresh_live').value),
+                upcoming_seconds: Number(document.getElementById('refresh_upcoming').value),
+                idle_seconds: Number(document.getElementById('refresh_idle').value),
+                final_seconds: Number(document.getElementById('refresh_final').value),
+            },
+            show_logo_slide: document.getElementById('show_logo_slide').checked,
+            football_priority: document.getElementById('football_priority').checked,
             cast_orientation: document.querySelector('.orient-btn.active')?.dataset.val || 'auto',
             theme:          document.querySelector('.theme-btn.active')?.dataset.val || 'dark',
             leagues,
@@ -2057,7 +2173,9 @@
             f1_favorites: selectedF1Favorites,
             golf_favorites: selectedGolfFavorites,
             slide_playlist: slidePlaylist,
-            slide_duration: parseInt(document.getElementById('slide_duration').value) || 8,
+            slide_duration: Number(document.getElementById('slide_duration').value),
+            logo_slide_duration: Number(document.getElementById('logo_slide_duration').value),
+            transition_duration_ms: Number(document.getElementById('transition_duration_ms').value),
             slide_transition: document.querySelector('.trans-btn.active')?.dataset.val || 'slide-right',
             ticker_speed: parseInt(document.getElementById('ticker_speed').value) || 120,
             date_windows: (() => {
@@ -2072,7 +2190,7 @@
             league_conferences,
             admin_credentials: {
                 username: document.getElementById('admin_username').value || 'admin',
-                password: document.getElementById('admin_password').value || currentSettings.admin_credentials?.password || 'root'
+                password: document.getElementById('admin_password').value
             },
             specials,
             local_schedule: {
@@ -2100,14 +2218,25 @@
         }
 
         try {
-            await fetch('/api/settings', {
+            const response = await fetch('/api/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             });
-            showToast('SAVED');
+            if (!response.ok) {
+                const result = await response.json();
+                throw new Error(result.error || 'Save failed');
+            }
+            const portChanged = payload.port !== currentSettings.port;
+            const passwordChanged = Boolean(payload.admin_credentials.password);
+            payload.admin_credentials = {...currentSettings.admin_credentials, username: payload.admin_credentials.username};
+            if (passwordChanged) payload.admin_credentials.default_password = false;
+            Object.assign(currentSettings, payload);
+            document.getElementById('admin_password').value = '';
+            showToast(portChanged ? 'Saved. Restart backend and kiosk to use the new port.' : 'Saved. Display changes apply automatically.');
+            if (passwordChanged) document.getElementById('default-password-warning').hidden = true;
         } catch(e) {
-            showToast('ERROR');
+            showToast(e.message || 'ERROR');
         }
     }
 
@@ -2118,7 +2247,7 @@
         try {
             const res = await fetch(`/api/teams/${leaguePath}`);
             const teams = await res.json();
-            teams.forEach(t => { teamMeta[`${leaguePath}:${t.abbr}`] = { logo:t.logo, color:t.color, name:t.name, abbr:t.abbr }; });
+            teams.forEach(t => { teamMeta[`${leaguePath}:${escapeHtml(t.abbr)}`] = { logo:t.logo, color:t.color, name:t.name, abbr:t.abbr }; });
         } catch(e) {}
     }
 
@@ -2133,14 +2262,14 @@
                 list.innerHTML = '<p style="color:#555;font-family:Barlow,sans-serif;">No team data available.</p>';
                 return;
             }
-            teams.forEach(t => { teamMeta[`${leaguePath}:${t.abbr}`] = { logo:t.logo, color:t.color, name:t.name, abbr:t.abbr }; });
+            teams.forEach(t => { teamMeta[`${leaguePath}:${escapeHtml(t.abbr)}`] = { logo:t.logo, color:t.color, name:t.name, abbr:t.abbr }; });
             list.innerHTML = '';
             teams.sort((a,b) => a.name.localeCompare(b.name)).forEach(t => {
-                const key = `${leaguePath}:${t.abbr}`;
+                const key = `${leaguePath}:${escapeHtml(t.abbr)}`;
                 const div = document.createElement('div');
                 div.className = 'team-check' + (selectedTeams.includes(key) ? ' selected' : '');
                 div.dataset.key = key;
-                div.innerHTML = `<span>${t.abbr} — ${t.name}</span>`;
+                div.innerHTML = `<span>${escapeHtml(t.abbr)} — ${escapeHtml(t.name)}</span>`;
                 div.addEventListener('click', () => {
                     if (selectedTeams.includes(key)) { selectedTeams = selectedTeams.filter(k => k !== key); div.classList.remove('selected'); }
                     else { selectedTeams.push(key); div.classList.add('selected'); }
@@ -2309,17 +2438,23 @@
             const league = key.slice(0, colon);
             const abbr   = key.slice(colon+1);
             const meta   = teamMeta[key] || {};
-            const color  = meta.color ? `#${meta.color.replace('#','')}` : '#333';
+            const color = /^#?[0-9a-f]{6}$/i.test(meta.color || '') ? '#' + meta.color.replace('#','') : '#333';
             const card   = document.createElement('div');
             card.className = 'fav-card';
             card.draggable = true;
             card.dataset.key = key;
             card.style.borderColor = color;
             card.innerHTML = `
-                <button class="fav-remove" data-key="${key}" title="Remove">✕</button>
-                ${meta.logo ? `<img src="${meta.logo}" onerror="this.style.display='none'">` : ''}
-                <span class="fav-abbr" style="color:${color}">${abbr}</span>
+                <button class="fav-remove" data-key="${escapeHtml(key)}" title="Remove">✕</button>
+                ${meta.logo ? `<img src="${safeSettingsUrl(meta.logo)}" onerror="this.style.display='none'">` : ''}
+                <span class="fav-abbr" style="color:${color}">${escapeHtml(abbr)}</span>
                 <span class="fav-league">${LEAGUE_LABELS[league] || league}</span>`;
+            addMoveButtons(card, selectedTeams.indexOf(key), selectedTeams.length, delta => {
+                const index = selectedTeams.indexOf(key);
+                selectedTeams.splice(index, 1);
+                selectedTeams.splice(index + delta, 0, key);
+                updateFavList(); syncPlaylist();
+            });
             card.addEventListener('dragstart', e => { dragSrcKey = key; e.dataTransfer.effectAllowed = 'move'; setTimeout(() => card.style.opacity='0.35',0); });
             card.addEventListener('dragend', () => { card.style.opacity='1'; dragSrcKey=null; });
             card.addEventListener('dragover', e => { e.preventDefault(); card.classList.add('drag-over'); });
@@ -2334,7 +2469,7 @@
             });
             card.querySelector('.fav-remove').addEventListener('click', () => {
                 selectedTeams = selectedTeams.filter(k => k !== key);
-                const match = document.querySelector(`#team-list [data-key="${key}"]`);
+                const match = document.querySelector(`#team-list [data-key="${CSS.escape(key)}"]`);
                 if (match) match.classList.remove('selected');
                 updateFavList();
                 syncPlaylist();
@@ -2442,23 +2577,45 @@
     async function uploadLogo(input) {
         const file = input.files[0];
         if (!file) return;
-        const fd = new FormData();
-        fd.append('logo', file);
+        const fd = new FormData(); fd.append('logo', file);
         try {
-            await fetch('/api/upload_logo', { method:'POST', body:fd });
-            document.getElementById('upload-status').textContent = `Uploaded: ${file.name}`;
-            // Refresh preview
+            const response = await fetch('/api/upload_logo', {method: 'POST', body: fd});
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Upload failed');
             const img = document.getElementById('logo-preview');
-            const noMsg = document.getElementById('logo-none-msg');
-            img.src = `/static/uploads/logo.png?t=${Date.now()}`;
+            img.src = `/static/uploads/logo.png?v=${encodeURIComponent(result.logo_version || Date.now())}`;
             img.style.display = '';
-            if (noMsg) noMsg.style.display = 'none';
-        } catch(e) {
-            document.getElementById('upload-status').textContent = 'Upload failed.';
-        }
+            document.getElementById('logo-none-msg').style.display = 'none';
+            document.getElementById('upload-status').textContent = 'Logo uploaded. Existing slide visibility is unchanged.';
+        } catch (error) { document.getElementById('upload-status').textContent = error.message; }
+        finally { input.value = ''; }
     }
 
+    async function removeLogo() {
+        if (!confirm('Remove the uploaded logo? This deletes the image. To keep it, turn off “Show custom logo slide” instead.')) return;
+        try {
+            const response = await fetch('/api/logo', {method: 'DELETE'});
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Could not remove logo');
+            document.getElementById('logo-preview').style.display = 'none';
+            document.getElementById('logo-none-msg').style.display = 'block';
+            showToast('Logo removed.');
+        } catch (error) { showToast(error.message); }
+    }
+
+    async function restoreSafeDefaults() {
+        if (!confirm('Restore safe display and refresh timings? Favorites, leagues, colors, images and account settings will be kept.')) return;
+        try {
+            const response = await fetch('/api/settings/safe-defaults', {method: 'POST'});
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Could not restore timings');
+            await loadSettings(); showToast('Safe timings restored. Favorites and images kept.');
+        } catch (error) { showToast(error.message); }
+    }
+
+
     function showToast(msg) {
+        document.getElementById('settings-message').textContent = msg;
         const t = document.getElementById('toast');
         t.textContent = msg;
         t.classList.add('show');
@@ -2616,7 +2773,7 @@
         try {
             const { data: d } = await fetchJson('/api/wifi/scan');
             if (d.error && !d.networks.length) {
-                list.innerHTML = `<p style="color:#FF1744;font-family:'Barlow',sans-serif;font-size:14px;padding:12px 14px;margin:0;">${d.error}</p>`;
+                list.innerHTML = `<p style="color:#FF1744;font-family:'Barlow',sans-serif;font-size:14px;padding:12px 14px;margin:0;">${escapeHtml(d.error)}</p>`;
             } else if (!d.networks.length) {
                 list.innerHTML = '<p style="color:#555;font-family:\'Barlow\',sans-serif;font-size:14px;padding:12px 14px;margin:0;">No networks found.</p>';
             } else {
@@ -2635,7 +2792,7 @@
                 }).join('');
             }
         } catch(e) {
-            list.innerHTML = `<p style="color:#FF1744;font-family:'Barlow',sans-serif;font-size:14px;padding:12px 14px;margin:0;">Scan failed: ${e.message}</p>`;
+            list.innerHTML = `<p style="color:#FF1744;font-family:'Barlow',sans-serif;font-size:14px;padding:12px 14px;margin:0;">Scan failed: ${escapeHtml(e.message)}</p>`;
         }
         btn.disabled = false;
         btn.textContent = 'SCAN';
@@ -2704,7 +2861,7 @@
 
     pollKioskStatus();
     setInterval(pollKioskStatus, 15000);
-    loadSettings();
+    loadSettings().catch(error => showToast(error.message));
     refreshCacheStatus();
     wifiRefreshStatus();
     setInterval(wifiRefreshStatus, 30000);

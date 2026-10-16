@@ -1,0 +1,31 @@
+{
+  "environment": {
+    "python": "3.12.14",
+    "architecture": "x86_64",
+    "platform": "Linux",
+    "hardware": "cloud development host; not Raspberry Pi"
+  },
+  "scenario": {
+    "synthetic_games": 96,
+    "leagues": 4,
+    "favorite_cards": 96,
+    "external_requests": 0,
+    "measured_iterations": 300,
+    "warmup_iterations": 20,
+    "payload_bytes": 94487
+  },
+  "results": {
+    "median_render_json_ms": 9.063,
+    "p95_render_json_ms": 12.243,
+    "max_render_json_ms": 23.21,
+    "rss_high_water_before_kib": 38640,
+    "rss_high_water_after_kib": 38640,
+    "retained_python_heap_delta_after_50_renders_bytes": 6664,
+    "traced_heap_peak_bytes": 288524
+  },
+  "limits": [
+    "Synthetic cached data; does not include network latency, Chromium or SD writes.",
+    "Short benchmark is not a leak proof or a 24/7 soak test.",
+    "No Pi CPU/RAM/temperature measurements were made."
+  ]
+}

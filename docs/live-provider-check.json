@@ -1,0 +1,44 @@
+{
+  "football/college-football": {
+    "ok": true,
+    "events": 25,
+    "states": [
+      "final",
+      "scheduled"
+    ]
+  },
+  "football/nfl": {
+    "ok": true,
+    "events": 14,
+    "states": [
+      "final",
+      "scheduled"
+    ]
+  },
+  "basketball/nba": {
+    "ok": true,
+    "events": 2,
+    "states": [
+      "final"
+    ]
+  },
+  "baseball/mlb": {
+    "ok": true,
+    "events": 1,
+    "states": [
+      "scheduled"
+    ]
+  },
+  "golf/pga": {
+    "ok": true,
+    "events": 1,
+    "states": [
+      "scheduled"
+    ]
+  },
+  "processed": {
+    "scorecards": 21,
+    "golf_cards": 1,
+    "ticker_sections": 2
+  }
+}

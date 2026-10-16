@@ -1,0 +1,135 @@
+/* Additive display modes. The original scorecard and portrait layouts stay intact. */
+:root { --transition-duration: 500ms; }
+body.pg-index .slide.slide-entering,
+body.pg-index .slide.slide-exiting { animation-duration: var(--transition-duration); }
+body.pg-index .slide:not(.active):not(.slide-exiting) * { animation-play-state: paused; }
+body.pg-index #logo-slide img {
+    /* Retain uploaded artwork and its background without expensive animated filters. */
+    filter: none;
+    animation: none;
+}
+body.pg-index .empty-state {
+    width: min(90vw, 1000px);
+    min-height: 30vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3vh;
+    padding: 5vh 4vw;
+    text-align: center;
+    color: #b8c1c9;
+    border: 1px solid var(--border);
+    border-radius: 2vh;
+    background: var(--card-bg);
+    font-size: clamp(18px, 3.4vh, 48px);
+}
+body.pg-index .empty-state strong {
+    color: var(--league-label-color);
+    font-size: clamp(30px, 6vh, 96px);
+    letter-spacing: .12em;
+}
+body.pg-index.display-scoreboard #main-footer { display: none; }
+body.pg-index.display-scoreboard .slide { height: 81vh; }
+body.pg-index.display-scoreboard.phone.vertical .slide { height: 87dvh; }
+body.pg-index.display-ticker #main-header,
+body.pg-index.display-ticker #main-stage { display: none; }
+body.pg-index.display-ticker #main-footer {
+    height: 100%;
+    height: 100dvh;
+    border-bottom: max(1px, calc(3 * var(--px))) solid var(--ticker-border-color);
+    --ui-bar-height: clamp(60px, 25vh, 260px);
+}
+body.pg-index.display-ticker .ticker {
+    font-size: clamp(30px, 13vh, 160px);
+    line-height: 1.2;
+}
+body.pg-index.display-ticker .tick-logo { width: 1.15em; height: 1.15em; }
+body.pg-index .ticker-wrap { overflow: hidden; }
+body.pg-index .ticker {
+    padding-left: 0;
+    display: flex;
+    width: max-content;
+    flex-shrink: 0;
+    align-items: center;
+    will-change: transform;
+}
+body.pg-index .ticker-segment {
+    display: inline-flex;
+    align-items: center;
+    width: max-content;
+    flex-shrink: 0;
+    min-width: 100vw;
+}
+body.pg-index .tick-item {
+    display: inline-flex;
+    align-items: center;
+    gap: .22em;
+    line-height: 1.2;
+}
+body.pg-index .tick-item small { font-size: .6em; font-weight: 600; }
+body.pg-index .tick-logo {
+    height: .8em;
+    width: .8em;
+    flex: 0 0 auto;
+    object-fit: contain;
+    vertical-align: middle;
+}
+body.pg-index #connection-status {
+    position: fixed;
+    bottom: calc(var(--ui-bar-height) + 6px);
+    right: 10px;
+    z-index: 5;
+    max-width: calc(100vw - 20px);
+    padding: .35em .7em;
+    border: 1px solid #66552a;
+    border-radius: 5px;
+    background: #18150f;
+    color: #e2bd66;
+    font: 500 clamp(12px, 1.6vh, 20px)/1.3 Arial, sans-serif;
+}
+body.pg-index.display-scoreboard #connection-status,
+body.pg-index.display-ticker #connection-status { bottom: 8px; }
+body.pg-index .team-logo { max-width: 100%; }
+@media (min-aspect-ratio: 24/9) {
+    body.pg-index:not(.display-ticker) .slide { width: min(90vw, 190vh); }
+    body.pg-index.display-ticker .ticker { font-size: clamp(24px, 22vh, 220px); }
+}
+@media (prefers-reduced-motion: reduce) {
+    body.pg-index .slide.slide-entering,
+    body.pg-index .slide.slide-exiting { animation-duration: 0ms; }
+    body.pg-index .team-logo,
+    body.pg-index .live-dot { animation: none; }
+}
+
+/* Long custom names must not cover the centered clock or weather. */
+body.pg-index #header-left { max-width: 36%; min-width: 0; }
+body.pg-index #display-name { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Fit score/identity contents as well as the outer card on wide screens. */
+body.pg-index:not(.vertical) .teams-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: 1.4vw;
+}
+body.pg-index:not(.vertical) .team-block,
+body.pg-index:not(.vertical) .center-col { min-width: 0; }
+body.pg-index:not(.vertical) .score-display { font-size: min(16vh, 6vw); line-height: 1; }
+body.pg-index:not(.vertical) .score-part.win { font-size: 1.06em; }
+body.pg-index:not(.vertical) .team-abbr {
+    font-size: min(12vh, 4.8vw) !important;
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; line-height: 1.05;
+}
+body.pg-index:not(.vertical) .team-logo { height: min(25vh, 14vw); max-width: 90%; }
+body.pg-index:not(.vertical) .team-record,
+body.pg-index:not(.vertical) .team-score-v { font-size: min(7vh, 2.6vw); }
+body.pg-index:not(.vertical) .vs-label { font-size: min(10vh, 4.5vw); }
+/* Narrow portrait displays need width-based type, not oversized height-based type. */
+body.pg-index.vertical .team-block,
+body.pg-index.vertical .center-col { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
+body.pg-index.vertical .team-abbr {
+    font-size: min(18vh, 16vw) !important;
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+}
+body.pg-index.vertical .score-display { font-size: min(18vh, 16vw); }
+body.pg-index .score-part.win { font-size: 1.06em; }
+body.pg-index.phone.vertical .team-abbr { font-size: clamp(28px, 9vw, 48px) !important; }
+body.pg-index.phone.vertical .score-display { font-size: clamp(34px, 10vw, 68px) !important; }
