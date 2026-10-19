@@ -44,6 +44,11 @@ with tempfile.TemporaryDirectory(prefix='scoreboard-browser-qc-') as directory:
     app.get_weather = lambda city: '72°F'
     college = [event(), event('next', 'pre', days=2)]
     professional = [event('nfl', home='HOU', away='KC', rank=99)]
+    for live in [college[0], professional[0]]:
+        home, away = live['competitions'][0]['competitors']
+        home['linescores'] = [{'period': index, 'value': score} for index, score in enumerate([7, 10, 7], 1)]
+        away['linescores'] = [{'period': index, 'value': score} for index, score in enumerate([7, 7, 7], 1)]
+        away['records'] = [{'name': 'overall', 'summary': '4-2'}]
     for game in college:
         game['competitions'][0]['competitors'][0]['team']['logo'] = '/static/uploads/aggies.png'
         game['competitions'][0]['competitors'][1]['team']['logo'] = '/static/uploads/alabama.png'

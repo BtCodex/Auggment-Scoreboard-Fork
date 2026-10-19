@@ -30,6 +30,42 @@
     function normalizeMode(mode) {
         return ['scoreboard', 'ticker', 'hybrid'].includes(mode) ? mode : 'hybrid';
     }
+    function normalizeHeaderVisibility(value) {
+        return ['always', 'hidden', 'auto'].includes(value) ? value : 'auto';
+    }
+    function headerState(value, automaticVisible, mode) {
+        const preference = normalizeHeaderVisibility(value);
+        // Automatic retains the original five-minute cycle, and the ticker's
+        // full-screen presentation. Explicit choices override both behaviors.
+        return {
+            visible: preference === 'always' || (preference === 'auto' && mode !== 'ticker' && automaticVisible),
+            collapsed: preference === 'hidden' || (preference === 'auto' && mode === 'ticker'),
+        };
+    }
+    function periodScore(value) {
+        if (typeof value === 'number') return Number.isInteger(value) && value >= 0 ? String(value) : '—';
+        if (typeof value === 'string' && (/^\d+$/.test(value) || value === 'X')) return value;
+        return '—';
+    }
+    function renderPeriodTable(game) {
+        const detail = game && game.period_scores;
+        if (!detail || !Array.isArray(detail.labels) || !detail.labels.length || detail.labels.length > 60) return '';
+        const sides = ['away', 'home'];
+        const totals = detail.totals || {};
+        const baseball = game.league_path === 'baseball/mlb';
+        const statAvailable = key => sides.some(side => periodScore((totals[side] || {})[key]) !== '—');
+        const extras = baseball ? ['hits', 'errors'].filter(statAvailable) : [];
+        const labels = detail.labels.map(label => `<th scope="col">${escapeHtml(label)}</th>`).join('');
+        const extraHeaders = extras.map(key => `<th scope="col" class="period-${key}">${key === 'hits' ? 'H' : 'E'}</th>`).join('');
+        const rows = sides.map(side => {
+            const values = Array.isArray(detail[side]) ? detail[side] : [];
+            const cells = detail.labels.map((_, index) => `<td>${periodScore(values[index])}</td>`).join('');
+            const total = totals[side] || {};
+            const extraCells = extras.map(key => `<td class="period-${key}">${periodScore(total[key])}</td>`).join('');
+            return `<tr><th scope="row" class="period-team-name">${escapeHtml(game[side + '_name'] || side.toUpperCase())}</th>${cells}<td class="period-total">${periodScore(total.score)}</td>${extraCells}</tr>`;
+        }).join('');
+        return `<div class="period-breakdown"><div class="period-scroll" tabindex="0" role="region" aria-label="${baseball ? 'Inning' : 'Period'}-by-period scores"><table class="period-table"><thead><tr><th scope="col"><span class="period-accessible-label">Team</span></th>${labels}<th scope="col" class="period-total">${baseball ? 'R' : 'T'}</th>${extraHeaders}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    }
     function collegeRank(leaguePath, rank) {
         // ESPN uses 99 (and missing values) for unranked teams. Never turn
         // other league standings or malformed provider text into a CFB badge.
@@ -56,7 +92,7 @@
         const number = Number(value);
         return Number.isFinite(number) && number >= minimum ? Math.min(maximum, number) : fallback;
     }
-    const display = {escapeHtml, safeUrl, renderValue, normalizeMode, collegeRank, dayKey, gameKey, duration};
+    const display = {escapeHtml, safeUrl, renderValue, normalizeMode, normalizeHeaderVisibility, headerState, renderPeriodTable, collegeRank, dayKey, gameKey, duration};
     if (typeof module === 'object' && module.exports) module.exports = display;
     else root.ScoreboardDisplay = display;
 }(typeof window === 'undefined' ? globalThis : window));

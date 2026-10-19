@@ -10,7 +10,7 @@ Keep the working card untouched. Power down before removing it; keep a complete
 image backup somewhere other than the card. Use a spare card for testing. If unsure
 which disk an imaging tool will overwrite, stop and check before proceeding.
 
-The branch is `improve/pi-scoreboard-reliability` in
+The branch for this update is `improve/scorecard-details-and-android` in
 `BtCodex/Auggment-Scoreboard-Fork`. Download/clone that branch into a separate
 candidate directory on the test system. Do not copy candidate settings or uploads
 over the working application's files.
@@ -28,7 +28,7 @@ matrix is configured for 3.9, 3.11 and 3.12 but is not a physical ARM test.
 On a fresh Pi OS test card with a regular user account:
 
 ```bash
-git clone --branch improve/pi-scoreboard-reliability https://github.com/BtCodex/Auggment-Scoreboard-Fork.git scoreboard-candidate
+git clone --branch improve/scorecard-details-and-android https://github.com/BtCodex/Auggment-Scoreboard-Fork.git scoreboard-candidate
 cd scoreboard-candidate
 sudo bash install.sh
 ```
@@ -47,6 +47,12 @@ It creates/enables backend and applicable kiosk services; actual boot must still
 be checked on the device.
 
 ## Upgrade an existing installation on the cloned card
+
+**Use the manual copy procedure below for this update.** The previously installed
+updater does not accept the newly added `score_details.py` module or football
+catalog. Its one-click ZIP update could replace app.py while omitting that module,
+preventing startup. Do not use that older updater for this transition. Once the
+complete candidate is installed, its updated package handling includes both files.
 
 If you already have a working X11 installation, use a selective upgrade. These
 instructions assume Combined mode; omit kiosk commands for a server-only device.
@@ -116,12 +122,13 @@ sudo sha256sum "$APP_DIR/static/uploads/logo.png" > "$backup_dir/logo.sha256"
 ### 3. Copy reviewed runtime files only
 
 Copy these paths from CANDIDATE to the same paths under APP_DIR, preserving service
-user readability. Create static/js and scripts directories if needed:
+user readability. The copy block creates any missing directories:
 
-- app.py
+- app.py, score_details.py and version.txt
 - templates/index.html, templates/settings.html, templates/login.html
 - static/css/main.css, static/css/display-modes.css
 - static/js/clock.js, static/js/display.js
+- static/data/football-teams-2026.json
 - start_kiosk.sh, setup_kiosk_service.sh, install.sh
 - scripts/network_helper.py
 - LICENSE and the guides, if desired
@@ -134,6 +141,8 @@ while IFS= read -r relative_path; do
     sudo install -D -o "$APP_USER" -g "$APP_GROUP" -m 644 "$CANDIDATE/$relative_path" "$APP_DIR/$relative_path"
 done <<'FILES'
 app.py
+score_details.py
+version.txt
 templates/index.html
 templates/settings.html
 templates/login.html
@@ -141,6 +150,7 @@ static/css/main.css
 static/css/display-modes.css
 static/js/clock.js
 static/js/display.js
+static/data/football-teams-2026.json
 start_kiosk.sh
 setup_kiosk_service.sh
 install.sh
@@ -161,6 +171,11 @@ preserved. New options receive defaults on read. Legacy admin passwords migrate
 to a private hash after login. Blank password fields retain the password. Change
 the default admin/root account through Account settings. Hash migration cannot be
 read by the old application; rollback must restore the backed-up settings too.
+The SEC/Pac-12 conference correction also migrates stored filter IDs and writes
+`conference_filters_version: 2` on save. Keep the pre-upgrade settings backup for
+rollback; copying only old application code would misinterpret migrated filters.
+Header Visibility defaults to Automatic; clock and other presentation choices
+remain independent. Android files/tools/APKs are not required on the Pi.
 Existing paired server/kiosk devices should be upgraded together: heartbeat and
 privileged update requests now require their existing pairing token.
 

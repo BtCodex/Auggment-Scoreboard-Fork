@@ -39,11 +39,15 @@ It pulls real-time scores from ESPN for the major pro and college leagues, plus 
 
 **1. Prepare the OS**
 
+For the latest development candidate, see [the update report](docs/UPDATE_REPORT.md),
+[2026 team coverage](docs/TEAM_COVERAGE_2026.md), and
+[Android viewer/APK instructions](docs/ANDROID_VIEWER.md).
+
 Start with a fresh install of Raspberry Pi OS or Ubuntu/Debian.
 
 **2. Download Files**
 
-Place `app.py`, `install.sh`, `version.txt`, `requirements.txt`, and the `templates/` and `static/` folders together in a directory (e.g. `/home/pi/scoreboard`).
+Use the complete checkout, including `app.py`, `score_details.py`, installer/launcher scripts, `version.txt`, `requirements.txt`, and the `templates/`, `static/` and `scripts/` folders. The football catalog is in `static/data/football-teams-2026.json`. See [the safe installation and rollback guide](docs/INSTALL_AND_ROLLBACK.md); the older one-click updater cannot install this transition safely.
 
 **3. Run the Installer**
 

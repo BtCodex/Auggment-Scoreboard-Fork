@@ -36,6 +36,7 @@ class BackendImprovementTests(unittest.TestCase):
                             '_score_requests': {}, '_cache_errors': {}, '_requested_leagues': {},
                             '_last_refresh_attempt': 0, '_last_snapshot_write': 0,
                             '_ap_poll_request': {'retry_at': float('inf'), 'failures': 0},
+                            '_score_details': scoreboard.ScoreDetailsCache(),
                             '_espn_cache': {'raw_events': {}, 'updated_at': None}}.items():
             patcher = patch.object(scoreboard, name, value)
             patcher.start()

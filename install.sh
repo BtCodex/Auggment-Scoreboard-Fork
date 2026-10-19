@@ -115,7 +115,7 @@ case "$APP_DIR" in
     /|/home|/root|/usr|/etc|/var|"$APP_HOME") echo "ERROR: Choose a dedicated scoreboard directory."; exit 1 ;;
 esac
 [[ "$APP_DIR" == /* && "$APP_DIR$APP_HOME" != *$'\n'* && "$APP_DIR$APP_HOME" != *'"'* && "$APP_DIR$APP_HOME" != *'\'* ]] || { echo "ERROR: Invalid installation path."; exit 1; }
-for required in app.py start_kiosk.sh setup_kiosk_service.sh templates/index.html templates/login.html templates/settings.html static/css/main.css static/js/clock.js static/js/display.js static/css/display-modes.css scripts/network_helper.py LICENSE; do
+for required in app.py score_details.py start_kiosk.sh setup_kiosk_service.sh templates/index.html templates/login.html templates/settings.html static/css/main.css static/js/clock.js static/js/display.js static/css/display-modes.css static/data/football-teams-2026.json scripts/network_helper.py LICENSE; do
     [[ -f "$SCRIPT_DIR/$required" ]] || { echo "ERROR: Missing required source: $required"; exit 1; }
 done
 
@@ -435,7 +435,7 @@ find_src() {
 echo "--- Setting Up Application Directories ---"
 # Every directory the app touches at runtime, so nothing relies on lazy mkdir.
 mkdir -p "$APP_DIR/templates"
-mkdir -p "$APP_DIR/static/css" "$APP_DIR/static/js" "$APP_DIR/scripts"
+mkdir -p "$APP_DIR/static/css" "$APP_DIR/static/js" "$APP_DIR/static/data" "$APP_DIR/scripts"
 mkdir -p "$APP_DIR/static/uploads"
 mkdir -p "$APP_DIR/static/uploads/specials"
 mkdir -p "$APP_DIR/static/uploads/rss_logos"
@@ -451,6 +451,7 @@ echo "--- Copying Application Files ---"
 
 # Main application source
 copy_if_exists "$SCRIPT_DIR/app.py" "$APP_DIR/app.py"
+copy_if_exists "$SCRIPT_DIR/score_details.py" "$APP_DIR/score_details.py"
 
 # Templates
 for tmpl in index.html login.html settings.html; do
@@ -463,7 +464,7 @@ for tmpl in index.html login.html settings.html; do
 done
 
 # Copy application assets; preserve static/uploads and all user-owned media.
-for asset_dir in css js; do
+for asset_dir in css js data; do
     for asset in "$SCRIPT_DIR/static/$asset_dir/"*; do
         [[ -f "$asset" ]] || continue
         copy_if_exists "$asset" "$APP_DIR/static/$asset_dir/$(basename "$asset")"
@@ -665,8 +666,8 @@ echo "--- Setting Permissions ---"
 chown -R "$APP_USER:$APP_GROUP" "$APP_DIR"
 # Set modes only for application files we install; preserve uploaded media and
 # unrelated files instead of recursively making everything world-readable.
-chmod 755 "$APP_DIR" "$APP_DIR/templates" "$APP_DIR/static" "$APP_DIR/static/css" "$APP_DIR/static/js" "$APP_DIR/scripts"
-for installed in "$APP_DIR/app.py" "$APP_DIR/version.txt" "$APP_DIR/requirements.txt" "$APP_DIR/LICENSE" "$APP_DIR/README.md" "$APP_DIR/QC_REPORT.md" "$APP_DIR/templates/"*.html "$APP_DIR/static/css/"* "$APP_DIR/static/js/"* "$APP_DIR/scripts/"*.py; do
+chmod 755 "$APP_DIR" "$APP_DIR/templates" "$APP_DIR/static" "$APP_DIR/static/css" "$APP_DIR/static/js" "$APP_DIR/static/data" "$APP_DIR/scripts"
+for installed in "$APP_DIR/app.py" "$APP_DIR/score_details.py" "$APP_DIR/version.txt" "$APP_DIR/requirements.txt" "$APP_DIR/LICENSE" "$APP_DIR/README.md" "$APP_DIR/QC_REPORT.md" "$APP_DIR/templates/"*.html "$APP_DIR/static/css/"* "$APP_DIR/static/js/"* "$APP_DIR/static/data/"*.json "$APP_DIR/scripts/"*.py; do
     [[ ! -f "$installed" ]] || chmod 644 "$installed"
 done
 for config in settings.json kiosk.json paired_kiosks.json .session-key score_cache.json; do

@@ -1,6 +1,12 @@
 # Auggmented Scoreboard improvement and quality-control report
 
-Branch: `improve/pi-scoreboard-reliability`.
+Branch: `improve/scorecard-details-and-android` (based on `improve/pi-scoreboard-reliability`).
+
+The latest implementation and exact validation results are in
+[the scorecard/coverage/Android update report](docs/UPDATE_REPORT.md): 234 Python
+tests, 34 JavaScript tests, 28 Android Java policy checks, both Chromium suites,
+and an actual signed server-connected APK. Read its manual-upgrade requirement
+before installation; the older updater cannot copy the newly added module/catalog.
 
 **Ready for controlled physical testing; not verified for unattended 24/7 use.**
 All work was done in the development repository. No access, deployment, uninstall,
@@ -110,10 +116,12 @@ service change or modification of the actual Raspberry Pi occurred.
 
 | Check | Final result |
 | --- | --- |
-| Python unittest discovery |158 passed, 0 failed, 0 skipped |
+| Python unittest discovery |234 passed, 0 failed, 0 skipped |
 | JavaScript clock tests |15 passed, 0 failed |
 | JavaScript display-helper tests |7 passed, 0 failed |
 | JavaScript ranking badge tests |3 passed, 0 failed |
+| JavaScript scorecard/header tests |9 passed, 0 failed |
+| Android Java policy checks |28 passed; signed APK compiled and verified; no device tests |
 | Chromium integrated suite |All assertions passed; no uncaught JS errors |
 | Phone/settings sizes |360×800,390×844,844×390,1080×1920,1920×1080,2560×1080 passed |
 | Scorecard bounds/modes |Phone, portrait, landscape, ultrawide; traditional/LED/hybrid passed |
@@ -123,13 +131,14 @@ service change or modification of the actual Raspberry Pi occurred.
 | Targeted Ruff lint |F821/F822/F823 undefined-name/control-flow checks passed |
 | Syntax/dependencies |Python compileall, helper and rendered-template JS parsing, individual Bash syntax checks and pip check passed |
 | Service generation |Mock launcher/helper/Server/Kiosk/Combined tests and systemd-analyze verify passed |
-| Actual provider reads |NCAA 25 events, NFL 14, NBA 2, MLB 1, PGA 1; all parsed successfully; 21 scorecards/1 golf card in selected window |
-| New AP provider check |HTTP 200, explicit AP poll dated 2026-10-18, season 2026, 25 ranked teams parsed successfully |
+| Prior baseline provider reads |Previously NCAA 25 events, NFL 14, NBA 2, MLB 1, PGA 1; the latest update's direct provider reads are blocked by proxy 403 |
+| Prior AP provider check |Previously HTTP 200, explicit AP poll dated 2026-10-18, season 2026, 25 ranked teams; not rerun successfully for this update |
 | Physical Pi and 24–48 hour soak |Not run; required before unattended use |
 | Real custom College GameDay logo |Not supplied in checkout; file preservation tested with fixtures, appearance/checksum needs Pi check |
 | Actual team-logo CDN reads |Returned 403 in this environment; screenshots use colored raster fixtures, not real team/custom artwork |
 
-The 183 deterministic Python/JavaScript tests are separate from browser assertions.
+The 268 deterministic Python/JavaScript tests and 28 Android checks are separate
+from browser assertions.
 Expected failure-injection tests log corrupt-cache/disk-full/offline messages; these
 are not unresolved failures. Earlier test/implementation failures were investigated,
 corrected and rerun. One useful systemd validation caught and fixed an invalid

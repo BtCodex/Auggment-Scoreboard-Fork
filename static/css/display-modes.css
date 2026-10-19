@@ -180,3 +180,62 @@ body.pg-index .tick-rank-badge {
     border: 1px solid currentColor;
     border-radius: .12em;
 }
+
+/* Explicit header choices apply to every display style. Automatic retains
+   its existing fade cycle, including the full-screen ticker presentation. */
+body.pg-index.header-hidden #main-header { display: none; }
+body.pg-index.header-hidden #main-stage .slide { height: 95%; }
+body.pg-index.display-ticker.header-always #main-header { display: flex; }
+body.pg-index.display-ticker.header-always #main-footer { height: auto; flex: 1; min-height: 0; }
+
+/* Give both logo lockups equal, slightly larger boxes and lift them together.
+   The contained images retain their own aspect ratios; badges do not overlap. */
+body.pg-index .team-logo-lockup {
+    height: min(27.5vh, 15.4vw);
+    transform: translateY(-.5vh);
+}
+body.pg-index.vertical .team-logo-lockup { height: min(36vh, 36vw); max-height: 60%; }
+body.pg-index.phone .team-logo-lockup { height: clamp(55px, 14.3vw, 90px); }
+body.pg-index.phone.vertical .team-logo-lockup { height: clamp(88px, 22dvh, 198px); }
+body.pg-index .team-record { margin-top: .4vh; line-height: 1.15; min-height: 1.15em; }
+body.pg-index.vertical .team-record { font-size: clamp(14px, 3.4vw, 44px); }
+body.pg-index .has-periods .teams-grid { min-height: 0; }
+body.pg-index .has-periods .team-block { min-height: 0; max-height: 100%; }
+body.pg-index:not(.vertical) .has-periods .team-block { height: 100%; }
+body.pg-index .has-periods .team-abbr,
+body.pg-index .has-periods .team-record { flex-shrink: 0; }
+
+/* Authoritative period details only. Extra innings scroll inside this region
+   without widening the scorecard or shrinking the main totals. */
+body.pg-index .period-breakdown {
+    width: 100%;
+    min-width: 0;
+    flex: 0 0 auto;
+    margin-top: .8vh;
+    padding-top: .5vh;
+    border-top: max(1px, calc(2 * var(--px))) solid var(--border);
+}
+body.pg-index .period-scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+body.pg-index .period-scroll:focus-visible { outline: 2px solid var(--league-label-color); outline-offset: -2px; }
+body.pg-index .period-table {
+    margin: 0 auto;
+    border-collapse: collapse;
+    font: 600 clamp(12px, min(2.5vh, 1.8vw), 36px)/1.15 var(--font-primary);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    color: var(--team-abbr-color);
+    white-space: nowrap;
+}
+body.pg-index .period-table th,
+body.pg-index .period-table td { padding: .16em .55em; }
+body.pg-index .period-table thead { color: var(--league-label-color); }
+body.pg-index .period-team-name { text-align: left; }
+body.pg-index .period-total { font-weight: 900; border-left: 1px solid var(--border); }
+body.pg-index .period-accessible-label {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+body.pg-index.vertical .period-table { font-size: clamp(14px, 2.5vw, 32px); }
+body.pg-index.phone .period-table { font-size: clamp(12px, 2.7vw, 20px); }
+body.pg-index.phone.vertical .period-table { font-size: clamp(12px, 3.5vw, 16px); }
+body.pg-index.phone .period-table th,
+body.pg-index.phone .period-table td { padding: .16em .4em; }

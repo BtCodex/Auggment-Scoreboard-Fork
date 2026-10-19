@@ -1,0 +1,1286 @@
+{
+  "schema_version": 1,
+  "season": 2026,
+  "source_checked_at": "2026-10-19",
+  "verification_status": "Verified against publicly published 2026 ESPN/CFBD snapshots and nflverse metadata. Direct ESPN API and official conference websites were blocked by this cloud environment; current upstream changes and logo downloads require live-device verification.",
+  "sources": [
+    {
+      "description": "2026 CFB membership, cross-checked CFBD and ESPN",
+      "url": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/cfb_groups/cfb_team_group_seasons_2026.csv",
+      "retrieved_at": "2026-10-19",
+      "content_sha256": "fe6ed7c08bac122e5cb0a8644770e6483560db0e8f268286eeda204655bd9d85",
+      "hash_scope": "downloaded content"
+    },
+    {
+      "description": "2026 ESPN CFB schedule: team identifiers, abbreviations and full names",
+      "url": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_cfb_schedules/cfb_schedule_2026.csv",
+      "retrieved_at": "2026-10-19",
+      "content_sha256": "2d86ab1bef97ab4f465670f9280683dbad2c3ef1960f6967b59de94d5980732c",
+      "hash_scope": "downloaded content"
+    },
+    {
+      "description": "CFB team colors and ESPN logo URLs; historical conference column not used",
+      "url": "https://raw.githubusercontent.com/sportsdataverse/cfbfastR-data/master/teams/teams_colors_logos.csv",
+      "retrieved_at": "2026-10-19",
+      "content_sha256": "d559f26ad046e7995ceba9403730cde862b5c6d4cdb750fecd7d94733efc7294",
+      "hash_scope": "downloaded content"
+    },
+    {
+      "description": "2026 ESPN NFL team identifiers, abbreviations and full names, published snapshot",
+      "url": "https://raw.githubusercontent.com/sportsdataverse/sdv-reference-data/main/raw/nfl/espn/2026.json.gz",
+      "retrieved_at": "2026-10-19",
+      "content_sha256": "19d950294494c4c51e65eae634707f6de0a73b93d4d2f5418c03f057f18f9b78",
+      "hash_scope": "decoded content"
+    },
+    {
+      "description": "NFL team colors and ESPN logo URLs; historical franchises removed by ESPN 2026 ID list",
+      "url": "https://github.com/nflverse/nflverse-data/releases/download/teams/teams_colors_logos.csv",
+      "retrieved_at": "2026-10-19",
+      "content_sha256": "4eab559fcf89cb4eaf61cb63a88abc47b01b6c9049187c59f3efe95888c3d048",
+      "hash_scope": "downloaded content"
+    },
+    {
+      "description": "ESPN CFB conference identifiers, published 2026 snapshot",
+      "url": "https://raw.githubusercontent.com/sportsdataverse/sdv-reference-data/main/raw/cfb/espn_groups.json.gz",
+      "retrieved_at": "2026-10-19",
+      "content_sha256": "7235bb430be64e1f2a785b6bc37006364b291126a35204f59500b116b1c6e654",
+      "hash_scope": "decoded content"
+    }
+  ],
+  "conference_ids": {
+    "ACC": "1",
+    "Big Ten": "5",
+    "Big 12": "4",
+    "SEC": "8",
+    "Pac-12": "9",
+    "American Athletic": "151",
+    "Sun Belt": "37",
+    "MAC": "15",
+    "Conference USA": "12",
+    "Mountain West": "17",
+    "Independents": "18"
+  },
+  "cfb": [
+    {
+      "id": "333",
+      "abbr": "ALA",
+      "name": "Alabama Crimson Tide",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/333.png",
+      "color": "690014",
+      "conference": "SEC",
+      "conference_id": "8",
+      "target": true
+    },
+    {
+      "id": "9",
+      "abbr": "ASU",
+      "name": "Arizona State Sun Devils",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/9.png",
+      "color": "942139",
+      "conference": "Big 12",
+      "conference_id": "4",
+      "target": true
+    },
+    {
+      "id": "12",
+      "abbr": "ARIZ",
+      "name": "Arizona Wildcats",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/12.png",
+      "color": "002449",
+      "conference": "Big 12",
+      "conference_id": "4",
+      "target": true
+    },
+    {
+      "id": "8",
+      "abbr": "ARK",
+      "name": "Arkansas Razorbacks",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/8.png",
+      "color": "9c1831",
+      "conference": "SEC",
+      "conference_id": "8",
+      "target": true
+    },
+    {
+      "id": "2",
+      "abbr": "AUB",
+      "name": "Auburn Tigers",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2.png",
+      "color": "03244d",
+      "conference": "SEC",
+      "conference_id": "8",
+      "target": true
+    },
+    {
+      "id": "252",
+      "abbr": "BYU",
+      "name": "BYU Cougars",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/252.png",
+      "color": "001E4C",
+      "conference": "Big 12",
+      "conference_id": "4",
+      "target": true
+    },
+    {
+      "id": "239",
+      "abbr": "BAY",
+      "name": "Baylor Bears",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/239.png",
+      "color": "004834",
+      "conference": "Big 12",
+      "conference_id": "4",
+      "target": true
+    },
+    {
+      "id": "68",
+      "abbr": "BOIS",
+      "name": "Boise State Broncos",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/68.png",
+      "color": "09347A",
+      "conference": "Pac-12",
+      "conference_id": "9",
+      "target": true,
+      "aliases": [
+        "BSU"
+      ]
+    },
+    {
+      "id": "103",
+      "abbr": "BC",
+      "name": "Boston College Eagles",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/103.png",
+      "color": "88001a",
+      "conference": "ACC",
+      "conference_id": "1",
+      "target": true
+    },
+    {
+      "id": "25",
+      "abbr": "CAL",
+      "name": "California Golden Bears",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/25.png",
+      "color": "031522",
+      "conference": "ACC",
+      "conference_id": "1",
+      "target": true
+    },
+    {
+      "id": "2132",
+      "abbr": "CIN",
+      "name": "Cincinnati Bearcats",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2132.png",
+      "color": "000000",
+      "conference": "Big 12",
+      "conference_id": "4",
+      "target": true
+    },
+    {
+      "id": "228",
+      "abbr": "CLEM",
+      "name": "Clemson Tigers",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/228.png",
+      "color": "F66733",
+      "conference": "ACC",
+      "conference_id": "1",
+      "target": true
+    },
+    {
+      "id": "38",
+      "abbr": "COLO",
+      "name": "Colorado Buffaloes",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/38.png",
+      "color": "d1c57e",
+      "conference": "Big 12",
+      "conference_id": "4",
+      "target": true
+    },
+    {
+      "id": "36",
+      "abbr": "CSU",
+      "name": "Colorado State Rams",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/36.png",
+      "color": "004537",
+      "conference": "Pac-12",
+      "conference_id": "9",
+      "target": true
+    },
+    {
+      "id": "150",
+      "abbr": "DUKE",
+      "name": "Duke Blue Devils",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/150.png",
+      "color": "001A57",
+      "conference": "ACC",
+      "conference_id": "1",
+      "target": true
+    },
+    {
+      "id": "57",
+      "abbr": "FLA",
+      "name": "Florida Gators",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/57.png",
+      "color": "0021A5",
+      "conference": "SEC",
+      "conference_id": "8",
+      "target": true
+    },
+    {
+      "id": "52",
+      "abbr": "FSU",
+      "name": "Florida State Seminoles",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/52.png",
+      "color": "782F40",
+      "conference": "ACC",
+      "conference_id": "1",
+      "target": true
+    },
+    {
+      "id": "278",
+      "abbr": "FRES",
+      "name": "Fresno State Bulldogs",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/278.png",
+      "color": "c41230",
+      "conference": "Pac-12",
+      "conference_id": "9",
+      "target": true
+    },
+    {
+      "id": "61",
+      "abbr": "UGA",
+      "name": "Georgia Bulldogs",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/61.png",
+      "color": "CC0000",
+      "conference": "SEC",
+      "conference_id": "8",
+      "target": true
+    },
+    {
+      "id": "59",
+      "abbr": "GT",
+      "name": "Georgia Tech Yellow Jackets",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/59.png",
+      "color": "00223e",
+      "conference": "ACC",
+      "conference_id": "1",
+      "target": true
+    },
+    {
+      "id": "248",
+      "abbr": "HOU",
+      "name": "Houston Cougars",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/248.png",
+      "color": "C90822",
+      "conference": "Big 12",
+      "conference_id": "4",
+      "target": true
+    },
+    {
+      "id": "356",
+      "abbr": "ILL",
+      "name": "Illinois Fighting Illini",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/356.png",
+      "color": "f77329",
+      "conference": "Big Ten",
+      "conference_id": "5",
+      "target": true
+    },
+    {
+      "id": "84",
+      "abbr": "IU",
+      "name": "Indiana Hoosiers",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/84.png",
+      "color": "7D110C",
+      "conference": "Big Ten",
+      "conference_id": "5",
+      "target": true,
+      "aliases": [
+        "IND"
+      ]
+    },
+    {
+      "id": "2294",
+      "abbr": "IOWA",
+      "name": "Iowa Hawkeyes",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2294.png",
+      "color": "000000",
+      "conference": "Big Ten",
+      "conference_id": "5",
+      "target": true
+    },
+    {
+      "id": "66",
+      "abbr": "ISU",
+      "name": "Iowa State Cyclones",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/66.png",
+      "color": "660015",
+      "conference": "Big 12",
+      "conference_id": "4",
+      "target": true
+    },
+    {
+      "id": "2305",
+      "abbr": "KU",
+      "name": "Kansas Jayhawks",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2305.png",
+      "color": "0022B4",
+      "conference": "Big 12",
+      "conference_id": "4",
+      "target": true
+    },
+    {
+      "id": "2306",
+      "abbr": "KSU",
+      "name": "Kansas State Wildcats",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2306.png",
+      "color": "633194",
+      "conference": "Big 12",
+      "conference_id": "4",
+      "target": true
+    },
+    {
+      "id": "96",
+      "abbr": "UK",
+      "name": "Kentucky Wildcats",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/96.png",
+      "color": "005DAA",
+      "conference": "SEC",
+      "conference_id": "8",
+      "target": true
+    },
+    {
+      "id": "99",
+      "abbr": "LSU",
+      "name": "LSU Tigers",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/99.png",
+      "color": "22005c",
+      "conference": "SEC",
+      "conference_id": "8",
+      "target": true
+    },
+    {
+      "id": "97",
+      "abbr": "LOU",
+      "name": "Louisville Cardinals",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/97.png",
+      "color": "ad000a",
+      "conference": "ACC",
+      "conference_id": "1",
+      "target": true
+    },
+    {
+      "id": "120",
+      "abbr": "MD",
+      "name": "Maryland Terrapins",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/120.png",
+      "color": "D5002B",
+      "conference": "Big Ten",
+      "conference_id": "5",
+      "target": true
+    },
+    {
+      "id": "2390",
+      "abbr": "MIA",
+      "name": "Miami Hurricanes",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2390.png",
+      "color": "004325",
+      "conference": "ACC",
+      "conference_id": "1",
+      "target": true,
+      "aliases": [
+        "MIAMI"
+      ]
+    },
+    {
+      "id": "127",
+      "abbr": "MSU",
+      "name": "Michigan State Spartans",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/127.png",
+      "color": "18453B",
+      "conference": "Big Ten",
+      "conference_id": "5",
+      "target": true
+    },
+    {
+      "id": "130",
+      "abbr": "MICH",
+      "name": "Michigan Wolverines",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/130.png",
+      "color": "00274c",
+      "conference": "Big Ten",
+      "conference_id": "5",
+      "target": true
+    },
+    {
+      "id": "135",
+      "abbr": "MINN",
+      "name": "Minnesota Golden Gophers",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/135.png",
+      "color": "7F011B",
+      "conference": "Big Ten",
+      "conference_id": "5",
+      "target": true
+    },
+    {
+      "id": "344",
+      "abbr": "MSST",
+      "name": "Mississippi State Bulldogs",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/344.png",
+      "color": "762123",
+      "conference": "SEC",
+      "conference_id": "8",
+      "target": true
+    },
+    {
+      "id": "142",
+      "abbr": "MIZ",
+      "name": "Missouri Tigers",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/142.png",
+      "color": "000000",
+      "conference": "SEC",
+      "conference_id": "8",
+      "target": true
+    },
+    {
+      "id": "152",
+      "abbr": "NCSU",
+      "name": "NC State Wolfpack",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/152.png",
+      "color": "EF1216",
+      "conference": "ACC",
+      "conference_id": "1",
+      "target": true,
+      "aliases": [
+        "NCST"
+      ]
+    },
+    {
+      "id": "158",
+      "abbr": "NEB",
+      "name": "Nebraska Cornhuskers",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/158.png",
+      "color": "F20017",
+      "conference": "Big Ten",
+      "conference_id": "5",
+      "target": true
+    },
+    {
+      "id": "153",
+      "abbr": "UNC",
+      "name": "North Carolina Tar Heels",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/153.png",
+      "color": "99bfe5",
+      "conference": "ACC",
+      "conference_id": "1",
+      "target": true
+    },
+    {
+      "id": "77",
+      "abbr": "NU",
+      "name": "Northwestern Wildcats",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/77.png",
+      "color": "372286",
+      "conference": "Big Ten",
+      "conference_id": "5",
+      "target": true,
+      "aliases": [
+        "NW"
+      ]
+    },
+    {
+      "id": "87",
+      "abbr": "ND",
+      "name": "Notre Dame Fighting Irish",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/87.png",
+      "color": "00122b",
+      "conference": "Independents",
+      "conference_id": "18",
+      "target": false
+    },
+    {
+      "id": "194",
+      "abbr": "OSU",
+      "name": "Ohio State Buckeyes",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/194.png",
+      "color": "DE3121",
+      "conference": "Big Ten",
+      "conference_id": "5",
+      "target": true
+    },
+    {
+      "id": "201",
+      "abbr": "OU",
+      "name": "Oklahoma Sooners",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/201.png",
+      "color": "7b0000",
+      "conference": "SEC",
+      "conference_id": "8",
+      "target": true,
+      "aliases": [
+        "OKLA"
+      ]
+    },
+    {
+      "id": "197",
+      "abbr": "OKST",
+      "name": "Oklahoma State Cowboys",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/197.png",
+      "color": "FF6500",
+      "conference": "Big 12",
+      "conference_id": "4",
+      "target": true
+    },
+    {
+      "id": "145",
+      "abbr": "MISS",
+      "name": "Ole Miss Rebels",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/145.png",
+      "color": "001148",
+      "conference": "SEC",
+      "conference_id": "8",
+      "target": true
+    },
+    {
+      "id": "2483",
+      "abbr": "ORE",
+      "name": "Oregon Ducks",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2483.png",
+      "color": "044520",
+      "conference": "Big Ten",
+      "conference_id": "5",
+      "target": true
+    },
+    {
+      "id": "204",
+      "abbr": "ORST",
+      "name": "Oregon State Beavers",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/204.png",
+      "color": "c34500",
+      "conference": "Pac-12",
+      "conference_id": "9",
+      "target": true
+    },
+    {
+      "id": "213",
+      "abbr": "PSU",
+      "name": "Penn State Nittany Lions",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/213.png",
+      "color": "00265D",
+      "conference": "Big Ten",
+      "conference_id": "5",
+      "target": true
+    },
+    {
+      "id": "221",
+      "abbr": "PITT",
+      "name": "Pittsburgh Panthers",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/221.png",
+      "color": "003263",
+      "conference": "ACC",
+      "conference_id": "1",
+      "target": true
+    },
+    {
+      "id": "2509",
+      "abbr": "PUR",
+      "name": "Purdue Boilermakers",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2509.png",
+      "color": "B89D29",
+      "conference": "Big Ten",
+      "conference_id": "5",
+      "target": true
+    },
+    {
+      "id": "164",
+      "abbr": "RUTG",
+      "name": "Rutgers Scarlet Knights",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/164.png",
+      "color": "d21034",
+      "conference": "Big Ten",
+      "conference_id": "5",
+      "target": true
+    },
+    {
+      "id": "2567",
+      "abbr": "SMU",
+      "name": "SMU Mustangs",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2567.png",
+      "color": "E32F38",
+      "conference": "ACC",
+      "conference_id": "1",
+      "target": true
+    },
+    {
+      "id": "21",
+      "abbr": "SDSU",
+      "name": "San Diego State Aztecs",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/21.png",
+      "color": "BF2C37",
+      "conference": "Pac-12",
+      "conference_id": "9",
+      "target": true
+    },
+    {
+      "id": "2579",
+      "abbr": "SC",
+      "name": "South Carolina Gamecocks",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2579.png",
+      "color": "670010",
+      "conference": "SEC",
+      "conference_id": "8",
+      "target": true
+    },
+    {
+      "id": "24",
+      "abbr": "STAN",
+      "name": "Stanford Cardinal",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/24.png",
+      "color": "A80532",
+      "conference": "ACC",
+      "conference_id": "1",
+      "target": true
+    },
+    {
+      "id": "183",
+      "abbr": "SYR",
+      "name": "Syracuse Orange",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/183.png",
+      "color": "F37321",
+      "conference": "ACC",
+      "conference_id": "1",
+      "target": true
+    },
+    {
+      "id": "2628",
+      "abbr": "TCU",
+      "name": "TCU Horned Frogs",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2628.png",
+      "color": "3C377D",
+      "conference": "Big 12",
+      "conference_id": "4",
+      "target": true
+    },
+    {
+      "id": "2633",
+      "abbr": "TENN",
+      "name": "Tennessee Volunteers",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2633.png",
+      "color": "EE9627",
+      "conference": "SEC",
+      "conference_id": "8",
+      "target": true
+    },
+    {
+      "id": "245",
+      "abbr": "TA&M",
+      "name": "Texas A&M Aggies",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/245.png",
+      "color": "5C0025",
+      "conference": "SEC",
+      "conference_id": "8",
+      "target": true
+    },
+    {
+      "id": "251",
+      "abbr": "TEX",
+      "name": "Texas Longhorns",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/251.png",
+      "color": "EE7524",
+      "conference": "SEC",
+      "conference_id": "8",
+      "target": true
+    },
+    {
+      "id": "326",
+      "abbr": "TXST",
+      "name": "Texas State Bobcats",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/326.png",
+      "color": "4e1719",
+      "conference": "Pac-12",
+      "conference_id": "9",
+      "target": true
+    },
+    {
+      "id": "2641",
+      "abbr": "TTU",
+      "name": "Texas Tech Red Raiders",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2641.png",
+      "color": "C80025",
+      "conference": "Big 12",
+      "conference_id": "4",
+      "target": true
+    },
+    {
+      "id": "2116",
+      "abbr": "UCF",
+      "name": "UCF Knights",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2116.png",
+      "color": "000000",
+      "conference": "Big 12",
+      "conference_id": "4",
+      "target": true
+    },
+    {
+      "id": "26",
+      "abbr": "UCLA",
+      "name": "UCLA Bruins",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/26.png",
+      "color": "005C8E",
+      "conference": "Big Ten",
+      "conference_id": "5",
+      "target": true
+    },
+    {
+      "id": "30",
+      "abbr": "USC",
+      "name": "USC Trojans",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/30.png",
+      "color": "AE2531",
+      "conference": "Big Ten",
+      "conference_id": "5",
+      "target": true
+    },
+    {
+      "id": "328",
+      "abbr": "USU",
+      "name": "Utah State Aggies",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/328.png",
+      "color": "003263",
+      "conference": "Pac-12",
+      "conference_id": "9",
+      "target": true
+    },
+    {
+      "id": "254",
+      "abbr": "UTAH",
+      "name": "Utah Utes",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/254.png",
+      "color": "890012",
+      "conference": "Big 12",
+      "conference_id": "4",
+      "target": true
+    },
+    {
+      "id": "238",
+      "abbr": "VAN",
+      "name": "Vanderbilt Commodores",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/238.png",
+      "color": "000000",
+      "conference": "SEC",
+      "conference_id": "8",
+      "target": true
+    },
+    {
+      "id": "258",
+      "abbr": "UVA",
+      "name": "Virginia Cavaliers",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/258.png",
+      "color": "00204e",
+      "conference": "ACC",
+      "conference_id": "1",
+      "target": true
+    },
+    {
+      "id": "259",
+      "abbr": "VT",
+      "name": "Virginia Tech Hokies",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/259.png",
+      "color": "74232D",
+      "conference": "ACC",
+      "conference_id": "1",
+      "target": true
+    },
+    {
+      "id": "154",
+      "abbr": "WAKE",
+      "name": "Wake Forest Demon Deacons",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/154.png",
+      "color": "9E7E38",
+      "conference": "ACC",
+      "conference_id": "1",
+      "target": true
+    },
+    {
+      "id": "264",
+      "abbr": "WASH",
+      "name": "Washington Huskies",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/264.png",
+      "color": "2B2F64",
+      "conference": "Big Ten",
+      "conference_id": "5",
+      "target": true
+    },
+    {
+      "id": "265",
+      "abbr": "WSU",
+      "name": "Washington State Cougars",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/265.png",
+      "color": "94022a",
+      "conference": "Pac-12",
+      "conference_id": "9",
+      "target": true
+    },
+    {
+      "id": "277",
+      "abbr": "WVU",
+      "name": "West Virginia Mountaineers",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/277.png",
+      "color": "FFC600",
+      "conference": "Big 12",
+      "conference_id": "4",
+      "target": true
+    },
+    {
+      "id": "275",
+      "abbr": "WIS",
+      "name": "Wisconsin Badgers",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/275.png",
+      "color": "A00001",
+      "conference": "Big Ten",
+      "conference_id": "5",
+      "target": true
+    }
+  ],
+  "cfb_memberships": {
+    "2": "SEC",
+    "5": "American Athletic",
+    "6": "Sun Belt",
+    "8": "SEC",
+    "9": "Big 12",
+    "12": "Big 12",
+    "16": "MAC",
+    "21": "Pac-12",
+    "23": "Mountain West",
+    "24": "ACC",
+    "25": "ACC",
+    "26": "Big Ten",
+    "30": "Big Ten",
+    "36": "Pac-12",
+    "38": "Big 12",
+    "41": "Independents",
+    "48": "Conference USA",
+    "52": "ACC",
+    "55": "Conference USA",
+    "57": "SEC",
+    "58": "American Athletic",
+    "59": "ACC",
+    "61": "SEC",
+    "62": "Mountain West",
+    "66": "Big 12",
+    "68": "Pac-12",
+    "77": "Big Ten",
+    "84": "Big Ten",
+    "87": "Independents",
+    "96": "SEC",
+    "97": "ACC",
+    "98": "Conference USA",
+    "99": "SEC",
+    "103": "ACC",
+    "113": "MAC",
+    "120": "Big Ten",
+    "127": "Big Ten",
+    "130": "Big Ten",
+    "135": "Big Ten",
+    "142": "SEC",
+    "145": "SEC",
+    "150": "ACC",
+    "151": "American Athletic",
+    "152": "ACC",
+    "153": "ACC",
+    "154": "ACC",
+    "158": "Big Ten",
+    "164": "Big Ten",
+    "166": "Conference USA",
+    "167": "Mountain West",
+    "183": "ACC",
+    "189": "MAC",
+    "193": "MAC",
+    "194": "Big Ten",
+    "195": "MAC",
+    "197": "Big 12",
+    "201": "SEC",
+    "202": "American Athletic",
+    "204": "Pac-12",
+    "213": "Big Ten",
+    "218": "American Athletic",
+    "221": "ACC",
+    "228": "ACC",
+    "235": "American Athletic",
+    "238": "SEC",
+    "239": "Big 12",
+    "242": "American Athletic",
+    "245": "SEC",
+    "248": "Big 12",
+    "249": "American Athletic",
+    "251": "SEC",
+    "252": "Big 12",
+    "254": "Big 12",
+    "256": "Sun Belt",
+    "258": "ACC",
+    "259": "ACC",
+    "264": "Big Ten",
+    "265": "Pac-12",
+    "275": "Big Ten",
+    "276": "Sun Belt",
+    "277": "Big 12",
+    "278": "Pac-12",
+    "290": "Sun Belt",
+    "295": "Sun Belt",
+    "309": "Sun Belt",
+    "324": "Sun Belt",
+    "326": "Pac-12",
+    "328": "Pac-12",
+    "333": "SEC",
+    "338": "Conference USA",
+    "344": "SEC",
+    "349": "American Athletic",
+    "356": "Big Ten",
+    "2005": "Mountain West",
+    "2006": "MAC",
+    "2026": "Sun Belt",
+    "2032": "Sun Belt",
+    "2050": "MAC",
+    "2084": "MAC",
+    "2116": "Big 12",
+    "2117": "MAC",
+    "2132": "Big 12",
+    "2199": "MAC",
+    "2226": "American Athletic",
+    "2229": "Conference USA",
+    "2247": "Sun Belt",
+    "2294": "Big Ten",
+    "2305": "Big 12",
+    "2306": "Big 12",
+    "2309": "MAC",
+    "2335": "Conference USA",
+    "2348": "Sun Belt",
+    "2390": "ACC",
+    "2393": "Conference USA",
+    "2426": "American Athletic",
+    "2429": "American Athletic",
+    "2433": "Sun Belt",
+    "2439": "Mountain West",
+    "2440": "Mountain West",
+    "2449": "Mountain West",
+    "2459": "Mountain West",
+    "2483": "Big Ten",
+    "2509": "Big Ten",
+    "2534": "Conference USA",
+    "2567": "ACC",
+    "2572": "Sun Belt",
+    "2579": "SEC",
+    "2623": "Conference USA",
+    "2628": "Big 12",
+    "2633": "SEC",
+    "2636": "American Athletic",
+    "2638": "Mountain West",
+    "2641": "Big 12",
+    "2649": "MAC",
+    "2653": "Sun Belt",
+    "2655": "American Athletic",
+    "2711": "MAC",
+    "2751": "Mountain West"
+  },
+  "nfl": [
+    {
+      "id": "22",
+      "abbr": "ARI",
+      "name": "Arizona Cardinals",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/ari.png",
+      "color": "97233F",
+      "conference": "NFC",
+      "division": "NFC West"
+    },
+    {
+      "id": "1",
+      "abbr": "ATL",
+      "name": "Atlanta Falcons",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/atl.png",
+      "color": "A71930",
+      "conference": "NFC",
+      "division": "NFC South"
+    },
+    {
+      "id": "33",
+      "abbr": "BAL",
+      "name": "Baltimore Ravens",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/bal.png",
+      "color": "241773",
+      "conference": "AFC",
+      "division": "AFC North"
+    },
+    {
+      "id": "2",
+      "abbr": "BUF",
+      "name": "Buffalo Bills",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/buf.png",
+      "color": "00338D",
+      "conference": "AFC",
+      "division": "AFC East"
+    },
+    {
+      "id": "29",
+      "abbr": "CAR",
+      "name": "Carolina Panthers",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500-dark/car.png",
+      "color": "0085CA",
+      "conference": "NFC",
+      "division": "NFC South"
+    },
+    {
+      "id": "3",
+      "abbr": "CHI",
+      "name": "Chicago Bears",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/chi.png",
+      "color": "0B162A",
+      "conference": "NFC",
+      "division": "NFC North"
+    },
+    {
+      "id": "4",
+      "abbr": "CIN",
+      "name": "Cincinnati Bengals",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/cin.png",
+      "color": "FB4F14",
+      "conference": "AFC",
+      "division": "AFC North"
+    },
+    {
+      "id": "5",
+      "abbr": "CLE",
+      "name": "Cleveland Browns",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/cle.png",
+      "color": "FF3C00",
+      "conference": "AFC",
+      "division": "AFC North"
+    },
+    {
+      "id": "6",
+      "abbr": "DAL",
+      "name": "Dallas Cowboys",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/dal.png",
+      "color": "002244",
+      "conference": "NFC",
+      "division": "NFC East"
+    },
+    {
+      "id": "7",
+      "abbr": "DEN",
+      "name": "Denver Broncos",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/den.png",
+      "color": "002244",
+      "conference": "AFC",
+      "division": "AFC West"
+    },
+    {
+      "id": "8",
+      "abbr": "DET",
+      "name": "Detroit Lions",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/det.png",
+      "color": "0076B6",
+      "conference": "NFC",
+      "division": "NFC North"
+    },
+    {
+      "id": "9",
+      "abbr": "GB",
+      "name": "Green Bay Packers",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/gb.png",
+      "color": "203731",
+      "conference": "NFC",
+      "division": "NFC North"
+    },
+    {
+      "id": "34",
+      "abbr": "HOU",
+      "name": "Houston Texans",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/hou.png",
+      "color": "03202F",
+      "conference": "AFC",
+      "division": "AFC South"
+    },
+    {
+      "id": "11",
+      "abbr": "IND",
+      "name": "Indianapolis Colts",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/ind.png",
+      "color": "002C5F",
+      "conference": "AFC",
+      "division": "AFC South"
+    },
+    {
+      "id": "30",
+      "abbr": "JAX",
+      "name": "Jacksonville Jaguars",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/jax.png",
+      "color": "006778",
+      "conference": "AFC",
+      "division": "AFC South"
+    },
+    {
+      "id": "12",
+      "abbr": "KC",
+      "name": "Kansas City Chiefs",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/kc.png",
+      "color": "E31837",
+      "conference": "AFC",
+      "division": "AFC West"
+    },
+    {
+      "id": "13",
+      "abbr": "LV",
+      "name": "Las Vegas Raiders",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/lv.png",
+      "color": "000000",
+      "conference": "AFC",
+      "division": "AFC West",
+      "aliases": [
+        "OAK"
+      ]
+    },
+    {
+      "id": "24",
+      "abbr": "LAC",
+      "name": "Los Angeles Chargers",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/lac.png",
+      "color": "007BC7",
+      "conference": "AFC",
+      "division": "AFC West",
+      "aliases": [
+        "SD"
+      ]
+    },
+    {
+      "id": "14",
+      "abbr": "LAR",
+      "name": "Los Angeles Rams",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/lar.png",
+      "color": "003594",
+      "conference": "NFC",
+      "division": "NFC West",
+      "aliases": [
+        "LA",
+        "STL"
+      ]
+    },
+    {
+      "id": "15",
+      "abbr": "MIA",
+      "name": "Miami Dolphins",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/mia.png",
+      "color": "008E97",
+      "conference": "AFC",
+      "division": "AFC East"
+    },
+    {
+      "id": "16",
+      "abbr": "MIN",
+      "name": "Minnesota Vikings",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/min.png",
+      "color": "4F2683",
+      "conference": "NFC",
+      "division": "NFC North"
+    },
+    {
+      "id": "17",
+      "abbr": "NE",
+      "name": "New England Patriots",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/ne.png",
+      "color": "002244",
+      "conference": "AFC",
+      "division": "AFC East"
+    },
+    {
+      "id": "18",
+      "abbr": "NO",
+      "name": "New Orleans Saints",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/no.png",
+      "color": "D3BC8D",
+      "conference": "NFC",
+      "division": "NFC South"
+    },
+    {
+      "id": "19",
+      "abbr": "NYG",
+      "name": "New York Giants",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/nyg.png",
+      "color": "0B2265",
+      "conference": "NFC",
+      "division": "NFC East"
+    },
+    {
+      "id": "20",
+      "abbr": "NYJ",
+      "name": "New York Jets",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/nyj.png",
+      "color": "003F2D",
+      "conference": "AFC",
+      "division": "AFC East"
+    },
+    {
+      "id": "21",
+      "abbr": "PHI",
+      "name": "Philadelphia Eagles",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/phi.png",
+      "color": "004C54",
+      "conference": "NFC",
+      "division": "NFC East"
+    },
+    {
+      "id": "23",
+      "abbr": "PIT",
+      "name": "Pittsburgh Steelers",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/pit.png",
+      "color": "000000",
+      "conference": "AFC",
+      "division": "AFC North"
+    },
+    {
+      "id": "25",
+      "abbr": "SF",
+      "name": "San Francisco 49ers",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/sf.png",
+      "color": "AA0000",
+      "conference": "NFC",
+      "division": "NFC West"
+    },
+    {
+      "id": "26",
+      "abbr": "SEA",
+      "name": "Seattle Seahawks",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/sea.png",
+      "color": "002244",
+      "conference": "NFC",
+      "division": "NFC West"
+    },
+    {
+      "id": "27",
+      "abbr": "TB",
+      "name": "Tampa Bay Buccaneers",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/tb.png",
+      "color": "A71930",
+      "conference": "NFC",
+      "division": "NFC South"
+    },
+    {
+      "id": "10",
+      "abbr": "TEN",
+      "name": "Tennessee Titans",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/ten.png",
+      "color": "4495D2",
+      "conference": "AFC",
+      "division": "AFC South"
+    },
+    {
+      "id": "28",
+      "abbr": "WSH",
+      "name": "Washington Commanders",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png",
+      "color": "5A1414",
+      "conference": "NFC",
+      "division": "NFC East",
+      "aliases": [
+        "WAS"
+      ]
+    }
+  ]
+}

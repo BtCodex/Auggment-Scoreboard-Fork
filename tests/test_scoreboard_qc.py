@@ -44,6 +44,8 @@ class QualityTests(unittest.TestCase):
                 'ranks': {'245': 7}, 'season': datetime.now(timezone.utc).year,
                 'date': '2026-10-18T07:00Z', 'updated_at': datetime.now(timezone.utc).isoformat()}},
             '_ap_poll_request': {'retry_at': float('inf'), 'failures': 0},
+            '_score_details': scoreboard.ScoreDetailsCache(),
+            '_team_picker_cache': {},
             '_score_requests': {}, '_cache_errors': {}, '_requested_leagues': {}, '_last_refresh_attempt': 0,
             '_kiosk_last_data': None, '_kiosk_server_unreachable': False,
             '_weather_retry_at': 0, '_weather_city': None, 'WEATHER_CACHE': [None],

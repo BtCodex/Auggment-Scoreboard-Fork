@@ -8,6 +8,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from dateutil import parser as dateutil_parser
+from score_details import ScoreDetailsCache
 
 
 app = Flask(__name__)
@@ -69,6 +70,10 @@ _unpaired_kiosk_id = uuid.uuid4().hex
 _cache_lock = threading.Lock()
 _espn_cache = {"raw_events": {}, "updated_at": None}  # raw_events: path -> [event, ...]
 _ap_poll_request = {'retry_at': 0, 'failures': 0}
+_score_details = ScoreDetailsCache()
+_team_picker_cache = {}
+_team_picker_lock = threading.Lock()
+_football_catalog_cache = {'signature': None, 'data': {}, 'teams_by_id': {}}
 _update_lock = threading.Lock()
 _update_state = {
     "available": None,
@@ -390,11 +395,11 @@ def _bounded_slate(events, days_back, days_ahead, tz_str):
 
 HARDCODED_CONFERENCES = {
     "football/college-football": [
-        {"id": "9",   "name": "SEC"},
+        {"id": "8",   "name": "SEC"},
         {"id": "1",   "name": "ACC"},
         {"id": "5",   "name": "Big Ten"},
         {"id": "4",   "name": "Big 12"},
-        {"id": "21",  "name": "Pac-12"},
+        {"id": "9",   "name": "Pac-12"},
         {"id": "151", "name": "American Athletic"},
         {"id": "17",  "name": "Mountain West"},
         {"id": "37",  "name": "Sun Belt"},
@@ -632,6 +637,23 @@ _DEFAULT_COLORS = {
 }
 
 
+def _migrate_conference_filters(data):
+    """Keep legacy UI selections when correcting the SEC/Pac-12 ESPN IDs."""
+    result = dict(data)
+    if result.get('conference_filters_version') != 2:
+        original = result.get('league_conferences', {})
+        conferences = dict(original) if isinstance(original, dict) else {}
+        value = conferences.get('football/college-football')
+        if isinstance(value, str) or (isinstance(value, list) and all(isinstance(group, str) for group in value)):
+            def corrected(group):
+                return {'9': '8', '21': '9'}.get(group, group)
+            conferences['football/college-football'] = ([corrected(group) for group in value]
+                if isinstance(value, list) else ','.join(corrected(group) for group in value.split(',')))
+            result['league_conferences'] = conferences
+    result['conference_filters_version'] = 2
+    return result
+
+
 def get_settings():
     default = {
         "city": "Auburn, NE",
@@ -643,8 +665,10 @@ def get_settings():
         "show_logo_slide": True,
         "teams": ["football/college-football:TA&M", "football/nfl:HOU", "baseball/mlb:HOU", "basketball/nba:HOU"],
         "league_conferences": {},
+        "conference_filters_version": 2,
         "timezone": "America/Chicago",
         "clock_format": "12h",
+        "header_visibility": "auto",
         "display_mode": "hybrid",
         "score_refresh": {"live_seconds": 30, "upcoming_seconds": 300,
                           "idle_seconds": 900, "final_seconds": 3600},
@@ -705,6 +729,7 @@ def get_settings():
                 _validate_settings({key: value})
             except ValueError:
                 loaded.pop(key)
+        loaded = _migrate_conference_filters(loaded)
         merged = {**default, **loaded}
         # Deep merge nested dicts so missing sub-keys fall back to defaults
         for key in ('update', 'colors', 'schedule', 'date_windows', 'local_schedule', 'score_refresh'):
@@ -719,15 +744,19 @@ def _validate_settings(data):
     """Reject malformed settings before they reach startup or score processing."""
     if not isinstance(data, dict):
         raise ValueError('Settings must be a JSON object')
+    if 'conference_filters_version' in data and (type(data['conference_filters_version']) is not int or
+                                                data['conference_filters_version'] not in (1, 2)):
+        raise ValueError('Invalid conference filters version')
     for key in ('city', 'display_name', 'header_color', 'font_primary', 'palette_team', 'server_url', 'kiosk_name', 'auth_token'):
         if key in data and not isinstance(data[key], str):
             raise ValueError(key + ' must be text')
-    for key in ('clock_format', 'device_mode', 'theme', 'cast_orientation', 'display_mode', 'color_mode', 'slide_transition', 'football_display'):
+    for key in ('clock_format', 'device_mode', 'theme', 'cast_orientation', 'display_mode', 'color_mode', 'slide_transition', 'football_display', 'header_visibility'):
         choices = {'clock_format': ('12h', '24h', 'hidden'),
                    'device_mode': ('server', 'kiosk'), 'theme': ('dark', 'light'),
                    'cast_orientation': ('auto', 'horizontal', 'vertical', 'phone'),
                    'display_mode': ('scoreboard', 'ticker', 'hybrid'),
                    'football_display': ('both', 'cfb', 'nfl', 'weekly'),
+                   'header_visibility': ('always', 'hidden', 'auto'),
                    'color_mode': ('auto', 'manual'),
                    'slide_transition': ('slide-right', 'slide-left', 'slide-top', 'slide-bottom', 'fade')}
         if key in data and data[key] not in choices[key]:
@@ -810,7 +839,7 @@ def _validate_settings(data):
 
 def save_settings(data):
     _validate_settings(data)
-    data = dict(data)
+    data = _migrate_conference_filters(data)
     with _settings_lock:
         for field in ('server_url', 'kiosk_name', 'paired', 'kiosk_id', 'auth_token'):
             data.pop(field, None)
@@ -824,6 +853,7 @@ def save_settings(data):
                 pass
         if not isinstance(existing, dict):
             existing = {}
+        existing = _migrate_conference_filters(existing)
         if 'admin_credentials' in data:
             incoming = data['admin_credentials']
             credentials = dict(get_settings()['admin_credentials'])
@@ -1341,6 +1371,10 @@ def _refresh_espn_cache():
             requested_windows = {path: list(demand.get('windows', {})) for path, demand in _requested_leagues.items()
                                  if isinstance(demand, dict)}
         dw = settings.get('date_windows', {})
+        if 'football/college-football' in leagues:
+            # Retain the complete FBS slate for independent conference/profile
+            # filters. Apply selections locally rather than erasing other games.
+            lc['football/college-football'] = '80'
         for path in leagues:
             window = dw.get(path, {})
             back = max([window.get('days_back', 1)] + [entry[0] for entry in requested_windows.get(path, [])])
@@ -1393,7 +1427,19 @@ def _get_league_events(path, league_conferences, window=None):
             if window is not None:
                 windows[tuple(window)] = now
             _requested_leagues[path] = {'seen_at': now, 'windows': windows}
-        return _espn_cache['raw_events'].get(path, [])
+        events = _espn_cache['raw_events'].get(path, [])
+    if path == 'football/college-football':
+        selected = league_conferences.get(path, [])
+        selected = selected if isinstance(selected, list) else selected.split(',')
+        names = {entry['name'] for entry in HARDCODED_CONFERENCES[path] if entry['id'] in selected}
+        memberships = _football_catalog().get('cfb_memberships', {})
+        if names and memberships:
+            events = [event for event in events if any(
+                memberships.get(str(competitor.get('team', {}).get('id'))) in names
+                for competition in event.get('competitions', []) if isinstance(competition, dict)
+                for competitor in competition.get('competitors', []) if isinstance(competitor, dict)
+                and isinstance(competitor.get('team'), dict))]
+    return events
 
 
 def _load_score_snapshot():
@@ -1436,6 +1482,7 @@ def _load_score_snapshot():
                     pass
             for path in events:
                 _cache_errors[path] = 'Restored saved scores; awaiting provider refresh'
+        _score_details.restore(snapshot.get('game_details'))
         return bool(events)
     except FileNotFoundError:
         return False
@@ -1453,9 +1500,10 @@ def _save_score_snapshot(force=False):
     with _cache_lock:
         if not _espn_cache.get('updated_at'):
             return False
-        payload = json.dumps(_espn_cache, separators=(',', ':'))
+        game_details = _score_details.snapshot()
+        payload = json.dumps({**_espn_cache, 'game_details': game_details}, separators=(',', ':'))
         fingerprint = (SCORE_CACHE_FILE, hashlib.sha256(json.dumps(
-            [_espn_cache['raw_events'], _espn_cache.get('ap_poll')],
+            [_espn_cache['raw_events'], _espn_cache.get('ap_poll'), game_details],
             sort_keys=True, separators=(',', ':')).encode()).digest())
     if not force and fingerprint == _last_snapshot_fingerprint:
         _last_snapshot_write = now
@@ -2648,8 +2696,10 @@ def _build_data_response(active_leagues, active_teams, active_lc, tz_str, settin
                             "local_time": l_time_str,
                         })
 
-                    away_is_fav = f"{path.lower()}:{a_abbr.upper()}" in fav_set
-                    home_is_fav = f"{path.lower()}:{h_abbr.upper()}" in fav_set
+                    away_is_fav = any(f"{path.lower()}:{abbr.upper()}" in fav_set
+                                      for abbr in _team_aliases(path, away['team'].get('id'), a_abbr))
+                    home_is_fav = any(f"{path.lower()}:{abbr.upper()}" in fav_set
+                                      for abbr in _team_aliases(path, home['team'].get('id'), h_abbr))
                     priority = settings.get('football_priority', True)
                     is_aggies = path == 'football/college-football' and ('TA&M' in (a_abbr, h_abbr) or
                         any(str(c.get('team', {}).get('id')) == '245' for c in competitors))
@@ -2672,6 +2722,7 @@ def _build_data_response(active_leagues, active_teams, active_lc, tz_str, settin
                     in_window = team_min <= event_local_date <= team_max if event_local_date is not None else state == 'in'
                     if (is_fav or priority_game) and in_window and game_key not in fav_card_keys:
                         fav_card_keys.add(game_key)
+                        details = _score_details.get(path, event, home, away)
                         fav_cards.append({
                             "league_path": path,
                             "event_id": event.get("id", ""),
@@ -2686,8 +2737,7 @@ def _build_data_response(active_leagues, active_teams, active_lc, tz_str, settin
                             "game_state": game_state,
                             "is_pre": state == 'pre', "color_state": color_state,
                             "winner": winner,
-                            "away_record": (_espn_record(away) if state == 'pre' else ''),
-                            "home_record": (_espn_record(home) if state == 'pre' else ''),
+                            **details,
                             "away_is_fav": away_is_fav,
                             "home_is_fav": home_is_fav,
                         })
@@ -2733,6 +2783,7 @@ def _build_data_response(active_leagues, active_teams, active_lc, tz_str, settin
         "logo_available": bool(_logo_version()),
         "logo_version": _logo_version(),
         "clock_format": settings.get('clock_format', '12h'),
+        "header_visibility": settings.get('header_visibility', 'auto'),
         "timezone": tz_str,
         "slide_playlist": settings.get('slide_playlist', []),
         "slide_duration": settings.get('slide_duration', 8),
@@ -3009,32 +3060,114 @@ def teams_api(league_path):
             try:
                 r = requests.get(f"{server_url}/api/teams/{league_path}", timeout=8)
                 if r.ok:
-                    return jsonify(r.json())
+                    return jsonify(_merge_picker_teams(league_path, r.json()))
             except Exception:
                 pass
 
-    sport, league = ESPN_API_PATHS.get(league_path, (
-        league_path.split('/')[0], league_path.split('/')[-1],
-    ))
+    return jsonify(_picker_teams(league_path))
+
+
+def _football_catalog():
+    """Reload the small shipped catalog after a reviewed in-place code update."""
+    path = os.path.join(APP_DIR, 'static', 'data', 'football-teams-2026.json')
+    try:
+        signature = (path, os.stat(path).st_mtime_ns)
+        if _football_catalog_cache['signature'] != signature:
+            if os.path.getsize(path) > 512 * 1024:
+                raise ValueError('Team catalog too large')
+            with open(path) as source:
+                data = json.load(source)
+            if not isinstance(data, dict):
+                raise ValueError('Invalid team catalog')
+            lookup = {}
+            for key, league in [('cfb', 'football/college-football'), ('nfl', 'football/nfl')]:
+                lookup[league] = {str(team['id']): team for team in data.get(key, [])
+                                  if isinstance(team, dict) and team.get('id')}
+            _football_catalog_cache.update(signature=signature, data=data, teams_by_id=lookup)
+        return _football_catalog_cache['data']
+    except (OSError, ValueError):
+        return {}
+
+
+def _team_aliases(path, team_id, abbreviation):
+    if path not in ('football/college-football', 'football/nfl'):
+        return [abbreviation]
+    _football_catalog()
+    row = _football_catalog_cache['teams_by_id'].get(path, {}).get(str(team_id), {})
+    return list(dict.fromkeys([abbreviation, row.get('abbr', abbreviation)] + row.get('aliases', [])))
+
+
+def _merge_picker_teams(path, teams):
+    catalog_key = {'football/college-football': 'cfb', 'football/nfl': 'nfl'}.get(path)
+    canonical = _football_catalog().get(catalog_key, []) if catalog_key else []
+    merged = {str(team['id']): dict(team) for team in canonical if isinstance(team, dict) and team.get('id')}
+    if not isinstance(teams, list):
+        teams = []
+    for team in teams[:1000]:
+        if not isinstance(team, dict) or not isinstance(team.get('abbr'), str) or not isinstance(team.get('name'), str):
+            continue
+        key = str(team.get('id') or team['abbr'])
+        if key in merged:
+            # Keep the favorite identifier stable; fresh names/colors/logos can
+            # improve the display without rewriting any saved favorite keys.
+            abbr = merged[key]['abbr']
+            merged[key].update({field: value for field, value in team.items() if value})
+            merged[key]['abbr'] = abbr
+        else:
+            existing = next((value for value in merged.values() if value['abbr'] == team['abbr']), None)
+            if existing is not None:
+                existing.update({field: value for field, value in team.items() if value})
+            else:
+                merged[key] = dict(team)
+    favorites = set(value.upper() for value in get_settings().get('teams', []))
+    for team in merged.values():
+        for alias in [team['abbr']] + team.get('aliases', []):
+            if f'{path}:{alias}'.upper() in favorites:
+                team['abbr'] = alias
+                break
+    return sorted(merged.values(), key=lambda team: team['name'].casefold())
+
+
+def _picker_teams(league_path):
+    if league_path not in ESPN_API_PATHS:
+        return []
+    now = time_module.monotonic()
+    with _team_picker_lock:
+        entry = _team_picker_cache.get(league_path, {})
+        if now < entry.get('retry_at', 0):
+            return _merge_picker_teams(league_path, entry.get('teams', []))
+    sport, league = ESPN_API_PATHS[league_path]
     base_host = "site.web.api.espn.com" if league_path in ESPN_WEB_API_LEAGUES else "site.api.espn.com"
     try:
-        res = requests.get(
+        response = requests.get(
             f"https://{base_host}/apis/site/v2/sports/{sport}/{league}/teams?limit=500",
-            timeout=5,
-        ).json()
+            timeout=(3, 5))
+        response.raise_for_status()
+        res = response.json()
         teams = res['sports'][0]['leagues'][0]['teams']
-        return jsonify([
-            {
-                "abbr":  t['team']['abbreviation'],
-                "name":  t['team']['displayName'],
-                "logo":  (t['team'].get('logos') or [{}])[0].get('href', ''),
-                "color": t['team'].get('color', ''),
-            }
-            for t in teams
-            if t['team'].get('abbreviation') and t['team'].get('displayName')
-        ])
-    except Exception:
-        return jsonify([])
+        if not isinstance(teams, list):
+            raise ValueError('Invalid team list')
+        parsed = []
+        for item in teams[:1000]:
+            team = item.get('team') if isinstance(item, dict) else None
+            if not isinstance(team, dict) or not all(isinstance(team.get(key), str) and team[key]
+                                                     for key in ('abbreviation', 'displayName')):
+                continue
+            logos = team.get('logos')
+            logo = logos[0].get('href', '') if isinstance(logos, list) and logos and isinstance(logos[0], dict) else ''
+            parsed.append({'id': str(team.get('id', '')), 'abbr': team['abbreviation'],
+                           'name': team['displayName'], 'logo': logo if isinstance(logo, str) else '',
+                           'color': team.get('color', '') if isinstance(team.get('color', ''), str) else ''})
+        teams = parsed
+        if not teams:
+            raise ValueError('Empty team response')
+        entry = {'teams': teams, 'retry_at': now + 3600, 'failures': 0}
+    except (requests.RequestException, ValueError, KeyError, TypeError, IndexError):
+        failures = min(5, entry.get('failures', 0) + 1)
+        entry = {**entry, 'failures': failures, 'retry_at': now + min(900, 60 * 2 ** (failures - 1))}
+    with _team_picker_lock:
+        _team_picker_cache[league_path] = entry
+    return _merge_picker_teams(league_path, entry.get('teams', []))
 
 
 @app.route('/api/conferences/<path:league_path>')
@@ -3065,6 +3198,7 @@ def _kiosk_display_data(data, settings, tz_str):
                           ('ticker_speed', 120)]:
         data[key] = settings.get(key, fallback)
     data['clock_format']     = settings.get('clock_format', '12h')
+    data['header_visibility'] = settings.get('header_visibility', 'auto')
     data['timezone']         = tz_str
     data['specials']         = [
         s for s in settings.get('specials', [])
@@ -3095,6 +3229,7 @@ def data_api():
                     "teams": settings.get('teams', []),
                     "league_conferences": settings.get('league_conferences', {}),
                     "timezone": tz_str,
+                    "conference_filters_version": 2,
                     # Keep both leagues in the retained slate so an offline
                     # kiosk can still switch at local midnight or after a save.
                     "football_display": "both",
@@ -3130,6 +3265,7 @@ def data_api():
             _validate_settings(req_data)
         except ValueError as error:
             return jsonify({'error': str(error)}), 400
+        req_data = _migrate_conference_filters(req_data)
     # Display-specific sports filters never mutate global/persistent settings.
     settings = dict(settings)
     for key in ('date_windows', 'football_priority', 'football_display', 'nascar_favorites',
@@ -4118,13 +4254,14 @@ def _apply_update_package(download_url, kiosk_token=None, kiosk_id=None):
                     rel = raw[len(prefix):] if prefix and raw.startswith(prefix) else raw
                     if member.is_dir() or not rel:
                         continue
-                    allowed = (rel in ('app.py', 'requirements.txt', 'version.txt', 'LICENSE',
+                    allowed = (rel in ('app.py', 'score_details.py', 'requirements.txt', 'version.txt', 'LICENSE',
                                        'README.md', 'QC_REPORT.md', 'INSTALL_AND_ROLLBACK.md',
                                        'install.sh', 'start_kiosk.sh', 'setup_kiosk_service.sh', 'init_display.sh') or
                                (rel.startswith('scripts/') and rel.endswith(('.py', '.sh'))) or
                                (rel.startswith('templates/') and rel.endswith('.html')) or
                                (rel.startswith('static/css/') and rel.endswith('.css')) or
-                               (rel.startswith('static/js/') and rel.endswith('.js')))
+                               (rel.startswith('static/js/') and rel.endswith('.js')) or
+                               rel == 'static/data/football-teams-2026.json')
                     if not allowed:
                         continue
                     if rel in staged or member.file_size > 10 * 1024 * 1024:
@@ -4291,11 +4428,11 @@ def update_package():
 
     version = _read_version()
     buf = io.BytesIO()
-    include_files = ['app.py', 'version.txt', 'requirements.txt', 'LICENSE', 'README.md',
+    include_files = ['app.py', 'score_details.py', 'version.txt', 'requirements.txt', 'LICENSE', 'README.md',
                      'QC_REPORT.md', 'INSTALL_AND_ROLLBACK.md', 'install.sh', 'start_kiosk.sh',
                      'setup_kiosk_service.sh', 'init_display.sh']
     include_dirs  = ['templates', os.path.join('static', 'css'),
-                     os.path.join('static', 'js'), 'scripts']
+                     os.path.join('static', 'js'), os.path.join('static', 'data'), 'scripts']
 
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
         for fname in include_files:
@@ -4408,6 +4545,7 @@ def _cache_refresh_loop():
     _load_score_snapshot()
     last_selection = None
     next_refresh = 0.0
+    next_details_refresh = 0.0
     while True:
         settings = get_settings()
         with _cache_lock:
@@ -4435,6 +4573,13 @@ def _cache_refresh_loop():
             if _cache_errors:
                 delay = min(delay, 30)
             next_refresh = time_module.monotonic() + delay
+        if now >= next_details_refresh:
+            if settings.get('device_mode') == 'server' or not get_kiosk_config().get('server_url') or _kiosk_server_unreachable:
+                # A global four-requests/minute ceiling supplements per-game
+                # cache/backoff. Rendering only queues demand and never waits.
+                if _score_details.refresh():
+                    _save_score_snapshot()
+            next_details_refresh = time_module.monotonic() + 30
         time_module.sleep(5)
 
 

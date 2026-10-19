@@ -106,11 +106,23 @@
         updateClock();
 
 
-        // ─── HEADER: visible 5 min, hidden 5 min, alternating ───
-        let headerVisible = true;
+        // Automatic preserves the existing five-minute visible/hidden cycle.
+        let headerVisibility = ScoreboardDisplay.normalizeHeaderVisibility({{ settings.header_visibility | default('auto') | tojson }});
+        let automaticHeaderVisible = true;
+        function applyHeaderVisibility(value) {
+            headerVisibility = ScoreboardDisplay.normalizeHeaderVisibility(value);
+            const mode = document.body.classList.contains('display-ticker') ? 'ticker' : 'scoreboard';
+            const state = ScoreboardDisplay.headerState(headerVisibility, automaticHeaderVisible, mode);
+            const header = document.getElementById('main-header');
+            header.classList.toggle('hidden', !state.visible);
+            header.setAttribute('aria-hidden', String(!state.visible));
+            document.body.classList.toggle('header-hidden', state.collapsed);
+            document.body.classList.toggle('header-always', headerVisibility === 'always');
+        }
+        applyHeaderVisibility(headerVisibility);
         setInterval(() => {
-            headerVisible = !headerVisible;
-            document.getElementById('main-header').classList.toggle('hidden', !headerVisible);
+            automaticHeaderVisible = !automaticHeaderVisible;
+            applyHeaderVisibility(headerVisibility);
         }, 5 * 60 * 1000);
 
 
@@ -184,6 +196,7 @@
                 displayMode = next;
             }
             document.body.classList.add('display-' + displayMode);
+            applyHeaderVisibility(headerVisibility);
             if (displayMode === 'ticker') {
                 if (slideTimer) clearTimeout(slideTimer);
                 slideTimer = null;
@@ -334,6 +347,7 @@
                 settingsVersion = data.settings_updated_at || settingsVersion;
                 browserRefreshSeconds = ScoreboardDisplay.duration(data.browser_refresh_seconds, 30, 30, 900);
                 applyDisplayMode(data.display_mode);
+                applyHeaderVisibility(data.header_visibility);
                 if (appVersion && data.app_version && data.app_version !== appVersion) {
                     window.location.reload();
                     return;
@@ -458,7 +472,7 @@
                     </div>`);
 
                 const flashIds = new Set();
-                (renderData.teams || []).forEach(t => {
+                (renderData.teams || []).forEach((t, teamIndex) => {
                     const key = ScoreboardDisplay.gameKey(t);
                     const scoreNow = buildScoreText(t.away_score, t.home_score);
                     let doFlash = false;
@@ -489,6 +503,8 @@
                     const awayRank = ScoreboardDisplay.collegeRank(t.league_path, t.away_rank);
                     const homeRank = ScoreboardDisplay.collegeRank(t.league_path, t.home_rank);
                     const collegeFootball = t.league_path === 'football/college-football';
+                    const periodTable = ScoreboardDisplay.renderPeriodTable(data.teams[teamIndex]);
+                    const showRecords = Boolean(t.away_record || t.home_record);
 
                     let centerContent = '';
                     let statusContent = '';
@@ -526,7 +542,7 @@
                     const vLiveDot = stateClass === 'live' ? '<span class="live-dot"></span>' : '';
                     addSlide(t.league_path || 'teams', `
                         <div class="slide" data-slide-key="team:${key}" ${flashAttr}>
-                            <div class="card ${stateClass} ${doFlash ? 'flash' : ''}" id="card-${key.replace(/[^a-z0-9]/gi,'_')}">
+                            <div class="card ${stateClass} ${periodTable ? 'has-periods' : ''} ${doFlash ? 'flash' : ''}" id="card-${key.replace(/[^a-z0-9]/gi,'_')}">
                                 ${stateClass === 'final' ? '<div class="final-badge">F</div>' : ''}
                                 <div class="league-tag">${t.league_label}</div>
                                 ${statusContent}
@@ -537,9 +553,8 @@
                                             ${awayRank ? `<span class="team-rank-badge" aria-label="AP ranking ${awayRank}">#${awayRank}</span>` : ''}
                                         </div>` : ''}
                                         <span class="team-abbr ${awayFavCls}">${!collegeFootball && t.away_rank ? '#' + t.away_rank + ' ' : ''}${t.away_name}</span>
-                                        ${t.is_pre && t.away_record
-                                            ? `<span class="team-record ${awayFavCls}">${t.away_record}</span>`
-                                            : `<span class="team-score-v ${stateClass} ${awayWinClass} ${awayScoreFavCls}">${t.away_score}</span>`}
+                                        ${showRecords ? `<span class="team-record ${awayFavCls}"${t.away_record ? '' : ' aria-hidden="true"'}>${t.away_record || ''}</span>` : ''}
+                                        ${!t.is_pre ? `<span class="team-score-v ${stateClass} ${awayWinClass} ${awayScoreFavCls}">${t.away_score}</span>` : ''}
                                     </div>
                                     <div class="center-col">
                                         ${centerContent}
@@ -551,11 +566,11 @@
                                             ${homeRank ? `<span class="team-rank-badge" aria-label="AP ranking ${homeRank}">#${homeRank}</span>` : ''}
                                         </div>` : ''}
                                         <span class="team-abbr ${homeFavCls}">${!collegeFootball && t.home_rank ? '#' + t.home_rank + ' ' : ''}${t.home_name}</span>
-                                        ${t.is_pre && t.home_record
-                                            ? `<span class="team-record ${homeFavCls}">${t.home_record}</span>`
-                                            : `<span class="team-score-v ${stateClass} ${homeWinClass} ${homeScoreFavCls}">${t.home_score}</span>`}
+                                        ${showRecords ? `<span class="team-record ${homeFavCls}"${t.home_record ? '' : ' aria-hidden="true"'}>${t.home_record || ''}</span>` : ''}
+                                        ${!t.is_pre ? `<span class="team-score-v ${stateClass} ${homeWinClass} ${homeScoreFavCls}">${t.home_score}</span>` : ''}
                                     </div>
                                 </div>
+                                ${periodTable}
                                 <div class="v-event">
                                     <span class="v-event-league">${t.league_label}</span>
                                     <span class="v-event-time ${stateClass}">${vLiveDot}${vEventTime}</span>

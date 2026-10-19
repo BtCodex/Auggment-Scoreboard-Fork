@@ -216,6 +216,15 @@
                 </select>
                 <p>LED ticker fills the display with scrolling scores and logos. It does not require a clock or logo slide.</p>
             </div>
+            <div>
+                <label for="header_visibility">Header Visibility</label>
+                <select id="header_visibility">
+                    <option value="always">Always Show</option>
+                    <option value="hidden">Always Hide</option>
+                    <option value="auto">Automatic</option>
+                </select>
+                <p>Controls the name, clock and weather bar. Automatic alternates every five minutes, and keeps LED ticker fullscreen. The clock format remains independent.</p>
+            </div>
         </div>
 
         <div style="margin-top:24px;">
@@ -1992,6 +2001,7 @@
 
         document.getElementById('clock_format').value = ['12h', '24h', 'hidden'].includes(currentSettings.clock_format) ? currentSettings.clock_format : '12h';
         document.getElementById('display_mode').value = currentSettings.display_mode || 'hybrid';
+        document.getElementById('header_visibility').value = ScoreboardDisplay.normalizeHeaderVisibility(currentSettings.header_visibility);
         const refresh = currentSettings.score_refresh || {};
         for (const [id, key, fallback] of [['refresh_live','live_seconds',30], ['refresh_upcoming','upcoming_seconds',300], ['refresh_idle','idle_seconds',900], ['refresh_final','final_seconds',3600]]) {
             document.getElementById(id).value = refresh[key] ?? fallback;
@@ -2166,6 +2176,7 @@
             timezone:       document.getElementById('timezone').value,
             clock_format:   document.getElementById('clock_format').value,
             display_mode: document.getElementById('display_mode').value,
+            header_visibility: document.getElementById('header_visibility').value,
             score_refresh: {
                 live_seconds: Number(document.getElementById('refresh_live').value),
                 upcoming_seconds: Number(document.getElementById('refresh_upcoming').value),
@@ -2199,6 +2210,7 @@
                 return date_windows;
             })(),
             league_conferences,
+            conference_filters_version: 2,
             admin_credentials: {
                 username: document.getElementById('admin_username').value || 'admin',
                 password: document.getElementById('admin_password').value
@@ -2258,7 +2270,7 @@
         try {
             const res = await fetch(`/api/teams/${leaguePath}`);
             const teams = await res.json();
-            teams.forEach(t => { teamMeta[`${leaguePath}:${escapeHtml(t.abbr)}`] = { logo:t.logo, color:t.color, name:t.name, abbr:t.abbr }; });
+            teams.forEach(t => { teamMeta[`${leaguePath}:${t.abbr}`] = { logo:t.logo, color:t.color, name:t.name, abbr:t.abbr }; });
         } catch(e) {}
     }
 
@@ -2273,10 +2285,10 @@
                 list.innerHTML = '<p style="color:#555;font-family:Barlow,sans-serif;">No team data available.</p>';
                 return;
             }
-            teams.forEach(t => { teamMeta[`${leaguePath}:${escapeHtml(t.abbr)}`] = { logo:t.logo, color:t.color, name:t.name, abbr:t.abbr }; });
+            teams.forEach(t => { teamMeta[`${leaguePath}:${t.abbr}`] = { logo:t.logo, color:t.color, name:t.name, abbr:t.abbr }; });
             list.innerHTML = '';
             teams.sort((a,b) => a.name.localeCompare(b.name)).forEach(t => {
-                const key = `${leaguePath}:${escapeHtml(t.abbr)}`;
+                const key = `${leaguePath}:${t.abbr}`;
                 const div = document.createElement('div');
                 div.className = 'team-check' + (selectedTeams.includes(key) ? ' selected' : '');
                 div.dataset.key = key;
