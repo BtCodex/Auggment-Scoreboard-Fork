@@ -16,7 +16,8 @@ class ReleasePackagingTests(unittest.TestCase):
         paths = re.search(r"done <<'FILES'\n(.*?)\nFILES", guide, re.S)
         self.assertIsNotNone(paths)
         installed = set(paths.group(1).splitlines())
-        self.assertTrue({'app.py', 'score_details.py', 'static/data/football-teams-2026.json'}.issubset(installed))
+        self.assertTrue({'app.py', 'score_details.py', 'static/data/football-teams-2026.json',
+                         'static/js/live-widgets.js', 'static/css/live-widgets.css'}.issubset(installed))
         self.assertIn('Do not use that older updater', guide)
 
     def test_actual_release_archive_contains_runtime_and_license_without_device_state(self):
@@ -36,7 +37,7 @@ class ReleasePackagingTests(unittest.TestCase):
             with zipfile.ZipFile(root/'dist/Auggment-Scoreboard-test-1.3.zip') as archive:
                 entries = {path.partition('/')[2] for path in archive.namelist()}
             for required in ['app.py','score_details.py','static/data/football-teams-2026.json','scripts/network_helper.py','static/js/clock.js','static/js/display.js',
-                             'static/css/display-modes.css','templates/settings.html','LICENSE']:
+                             'static/css/display-modes.css','static/css/live-widgets.css','static/js/live-widgets.js','templates/settings.html','LICENSE']:
                 self.assertIn(required,entries)
             self.assertFalse(any(Path(path).name in ['settings.json','kiosk.json','paired_kiosks.json',
                                                     '.session-key','score_cache.json'] for path in entries))

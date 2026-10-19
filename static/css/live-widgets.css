@@ -1,0 +1,61 @@
+/* Static live snapshots: compact enough to retain the logo/score hierarchy. */
+body.pg-index .live-tracker {
+    box-sizing: border-box;
+    flex: 0 0 auto;
+    width: min(100%, 1200px);
+    min-width: 0;
+    margin: .65vh auto 0;
+    color: var(--team-abbr-color, #eee);
+    font: 600 clamp(11px, min(1.65vh, 1.25vw), 20px)/1.2 var(--font-primary, sans-serif);
+    font-variant-numeric: tabular-nums;
+}
+body.pg-index .football-tracker-caption {
+    display: flex;
+    align-items: center;
+    gap: .65em;
+    min-width: 0;
+    margin-bottom: .25em;
+    white-space: nowrap;
+}
+body.pg-index .football-possession { display: inline-flex; align-items: center; gap: .3em; flex: 0 1 auto; max-width: 24%; min-width: 0; }
+body.pg-index .football-possession > span:first-of-type { overflow: hidden; text-overflow: ellipsis; }
+body.pg-index .football-possession svg { height: .9em; width: 1.4em; flex: 0 0 auto; fill: currentColor; }
+body.pg-index .football-possession svg path { stroke: var(--bg-card, #171b22); stroke-width: 1.2; fill: none; }
+body.pg-index .football-direction { color: var(--league-label-color, #f5a800); flex: 0 0 auto; }
+body.pg-index .football-situation { overflow: hidden; text-overflow: ellipsis; }
+body.pg-index .football-time { margin-left: auto; flex: 0 0 auto; }
+body.pg-index .football-zone-label { color: #ffcc63; font-size: .8em; letter-spacing: .025em; }
+body.pg-index .football-field { display: block; width: 100%; height: clamp(13px, 1.8vh, 23px); overflow: visible; }
+body.pg-index .field-surface { fill: #12382a; stroke: #80a08d; stroke-width: 1; }
+body.pg-index .field-end-zone { fill: #0c251c; }
+body.pg-index .field-red-zone { fill: #376341; opacity: .35; }
+body.pg-index .in-red-zone .field-red-zone { fill: #e3a53b; opacity: .45; }
+body.pg-index .field-lines { fill: none; stroke: #91b39c; stroke-width: 1; opacity: .7; }
+body.pg-index .field-ball { fill: #f5b95d; stroke: #fff; stroke-width: 1.5; }
+body.pg-index .field-ball-laces { fill: none; stroke: #3b2614; stroke-width: 1.5; }
+body.pg-index .baseball-tracker { display: flex; align-items: center; justify-content: center; gap: .8em; }
+body.pg-index .baseball-diamond { height: clamp(28px, 4.3vh, 44px); width: clamp(44px, 6.7vh, 69px); flex: 0 0 auto; }
+body.pg-index .diamond-path { fill: #12382a; stroke: #7d9b89; stroke-width: 1.5; }
+body.pg-index .diamond-base { fill: #28332e; stroke: #c5d1c9; stroke-width: 1.5; }
+body.pg-index .diamond-base.occupied { fill: #ffcc63; stroke: #fff1c9; stroke-width: 2; }
+body.pg-index .diamond-home { fill: #c5d1c9; }
+body.pg-index .baseball-live-copy { display: flex; flex-direction: column; gap: .1em; }
+body.pg-index .baseball-live-bases { font-size: .85em; color: var(--league-label-color, #f5a800); }
+body.pg-index .baseball-mini-score { display: flex; gap: .4em; align-items: baseline; white-space: nowrap; }
+body.pg-index .baseball-score-separator { margin: 0 .1em; opacity: .6; }
+body.pg-index .has-live-tracker .teams-grid { min-height: 0; }
+body.pg-index .has-live-tracker .period-breakdown { margin-top: .45vh; padding-top: .3vh; }
+body.pg-index.vertical .live-tracker { width: 100%; font-size: clamp(12px, 1.8vw, 20px); }
+body.pg-index.vertical .football-field { height: clamp(17px, 1.6vh, 26px); }
+body.pg-index.phone .live-tracker { font-size: 11px; margin-top: 4px; }
+body.pg-index.phone .football-field { height: 15px; }
+body.pg-index.phone .baseball-diamond { height: 30px; width: 47px; }
+body.pg-index.phone.vertical .football-tracker-caption { flex-wrap: wrap; gap: 2px .55em; }
+body.pg-index.phone.vertical .football-situation { flex: 1; }
+body.pg-index.phone.vertical .football-zone-label { order: 4; }
+body.pg-index.phone.vertical .football-time { margin-left: auto; }
+body.pg-index.phone.vertical .baseball-tracker { gap: .55em; }
+body.pg-index.phone.vertical .baseball-mini-score { font-size: 10px; gap: .3em; }
+@media (prefers-reduced-motion: reduce) {
+    body.pg-index .live-tracker * { animation: none !important; transition: none !important; }
+}

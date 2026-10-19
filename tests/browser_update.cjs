@@ -11,7 +11,7 @@ const assert = require('node:assert/strict');
   await context.request.post(base+'/login',{form:{username:'admin',password:'root'}});
   async function save(data) { assert.equal((await context.request.post(base+'/api/settings',{data})).status(),200); }
   await save({device_mode:'server',port:5002,display_name:'AGGIE GAMEDAY',city:'',display_mode:'hybrid',
-   header_visibility:'always',clock_format:'12h',show_logo_slide:false,football_priority:true,football_display:'both',
+   header_visibility:'always',clock_format:'12h',show_time_bar:true,show_title_bar:true,show_logo_slide:false,football_priority:true,football_display:'both',
    teams:['football/college-football:TA&M','football/nfl:HOU'],leagues:['football/college-football','football/nfl'],
    league_conferences:{},conference_filters_version:2,slide_duration:3600,specials:[]});
   await page.setViewportSize({width:390,height:844});

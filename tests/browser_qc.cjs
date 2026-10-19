@@ -20,7 +20,7 @@ const assert = require('node:assert/strict');
  // Reset only this isolated fixture so repeated browser runs are independent.
  const baseline=await context.request.post(base+'/api/settings',{data:{
    device_mode:'server',port:5002,display_name:'AGGIE GAMEDAY',clock_format:'12h',
-   display_mode:'hybrid',header_visibility:'auto',show_logo_slide:true,football_priority:true,football_display:'both',timezone:'America/Chicago',
+   display_mode:'hybrid',header_visibility:'auto',show_time_bar:true,show_title_bar:true,show_logo_slide:true,football_priority:true,football_display:'both',timezone:'America/Chicago',
    teams:['football/college-football:TA&M','football/nfl:HOU'],leagues:['football/college-football','football/nfl'],
    slide_duration:2,logo_slide_duration:2,transition_duration_ms:500,ticker_speed:120,
    local_schedule:{rss_feeds:[],items:[],home_team_keywords:[]},

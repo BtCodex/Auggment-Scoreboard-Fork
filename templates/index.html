@@ -7,6 +7,7 @@
     <link id="font-link" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;900&family=Barlow:wght@400;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/static/css/main.css">
     <link rel="stylesheet" href="/static/css/display-modes.css">
+    <link rel="stylesheet" href="/static/css/live-widgets.css">
 </head>
 <body class="pg-index display-{{ settings.display_mode | default('hybrid') }}">
     <header id="main-header">
@@ -36,6 +37,7 @@
     <div id="connection-status" role="status" hidden></div>
     <script src="{{ url_for('static', filename='js/clock.js') }}"></script>
     <script src="{{ url_for('static', filename='js/display.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/live-widgets.js') }}"></script>
     <script>
         function updateScale() {
             const vw = window.innerWidth;
@@ -91,11 +93,15 @@
         // ─── CLOCK ───
         let clockFormat = {{ settings.clock_format | tojson }};
         let clockTimezone = {{ settings.timezone | tojson }};
+        let showTimeBar = {{ settings.show_time_bar | default(true) | tojson }};
+        let showTitleBar = {{ settings.show_title_bar | default(true) | tojson }};
         let _lastClockStr = '';
         function updateClock() {
-            const hidden = clockFormat === 'hidden';
-            document.getElementById('top-clock').hidden = hidden;
-            document.getElementById('header-sep').hidden = hidden;
+            const bars = ScoreboardDisplay.topBarState(showTitleBar, showTimeBar, clockFormat);
+            document.getElementById('top-clock').hidden = !bars.time;
+            document.getElementById('header-sep').hidden = !bars.separator;
+            document.getElementById('display-name').hidden = !bars.title;
+            document.getElementById('weather').hidden = !bars.title;
             const s = ScoreboardClock.format(new Date(), clockFormat, clockTimezone);
             if (s !== _lastClockStr) {
                 _lastClockStr = s;
@@ -113,10 +119,11 @@
             headerVisibility = ScoreboardDisplay.normalizeHeaderVisibility(value);
             const mode = document.body.classList.contains('display-ticker') ? 'ticker' : 'scoreboard';
             const state = ScoreboardDisplay.headerState(headerVisibility, automaticHeaderVisible, mode);
+            const empty = ScoreboardDisplay.topBarState(showTitleBar, showTimeBar, clockFormat).empty;
             const header = document.getElementById('main-header');
-            header.classList.toggle('hidden', !state.visible);
-            header.setAttribute('aria-hidden', String(!state.visible));
-            document.body.classList.toggle('header-hidden', state.collapsed);
+            header.classList.toggle('hidden', !state.visible || empty);
+            header.setAttribute('aria-hidden', String(!state.visible || empty));
+            document.body.classList.toggle('header-hidden', state.collapsed || empty);
             document.body.classList.toggle('header-always', headerVisibility === 'always');
         }
         applyHeaderVisibility(headerVisibility);
@@ -329,12 +336,25 @@
         }
 
         let dataUpdateInFlight = false;
+        function expireLiveTrackers(force = false) {
+            const now = performance.now();
+            document.querySelectorAll('.live-tracker').forEach(widget => {
+                if (force || !Number.isFinite(Number(widget.dataset.liveExpiresAt)) || now >= Number(widget.dataset.liveExpiresAt)) {
+                    const card = widget.closest('.card');
+                    widget.remove();
+                    if (card) card.classList.remove('has-live-tracker');
+                }
+            });
+        }
+        setInterval(expireLiveTrackers, 1000);
+        document.addEventListener('visibilitychange', () => expireLiveTrackers());
         async function updateData() {
             if (dataUpdateInFlight) return;
             dataUpdateInFlight = true;
             if (dataPollTimer) { clearTimeout(dataPollTimer); dataPollTimer = null; }
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 20000);
+            const requestStarted = performance.now();
             try {
                 const res = await fetch('/api/data', {signal: controller.signal});
                 if (!res.ok) throw new Error('Score API HTTP ' + res.status);
@@ -346,6 +366,9 @@
                 // Display preferences apply live; keep the current game and cached feed.
                 settingsVersion = data.settings_updated_at || settingsVersion;
                 browserRefreshSeconds = ScoreboardDisplay.duration(data.browser_refresh_seconds, 30, 30, 900);
+                showTimeBar = data.show_time_bar !== false;
+                showTitleBar = data.show_title_bar !== false;
+                clockFormat = data.clock_format || '12h';
                 applyDisplayMode(data.display_mode);
                 applyHeaderVisibility(data.header_visibility);
                 if (appVersion && data.app_version && data.app_version !== appVersion) {
@@ -504,6 +527,7 @@
                     const homeRank = ScoreboardDisplay.collegeRank(t.league_path, t.home_rank);
                     const collegeFootball = t.league_path === 'football/college-football';
                     const periodTable = ScoreboardDisplay.renderPeriodTable(data.teams[teamIndex]);
+                    const liveTracker = ScoreboardLiveWidgets.render(data.teams[teamIndex]);
                     const showRecords = Boolean(t.away_record || t.home_record);
 
                     let centerContent = '';
@@ -542,7 +566,7 @@
                     const vLiveDot = stateClass === 'live' ? '<span class="live-dot"></span>' : '';
                     addSlide(t.league_path || 'teams', `
                         <div class="slide" data-slide-key="team:${key}" ${flashAttr}>
-                            <div class="card ${stateClass} ${periodTable ? 'has-periods' : ''} ${doFlash ? 'flash' : ''}" id="card-${key.replace(/[^a-z0-9]/gi,'_')}">
+                            <div class="card ${stateClass} ${periodTable ? 'has-periods' : ''} ${liveTracker ? 'has-live-tracker' : ''} ${doFlash ? 'flash' : ''}" id="card-${key.replace(/[^a-z0-9]/gi,'_')}">
                                 ${stateClass === 'final' ? '<div class="final-badge">F</div>' : ''}
                                 <div class="league-tag">${t.league_label}</div>
                                 ${statusContent}
@@ -570,6 +594,7 @@
                                         ${!t.is_pre ? `<span class="team-score-v ${stateClass} ${homeWinClass} ${homeScoreFavCls}">${t.home_score}</span>` : ''}
                                     </div>
                                 </div>
+                                ${liveTracker}
                                 ${periodTable}
                                 <div class="v-event">
                                     <span class="v-event-league">${t.league_label}</span>
@@ -897,12 +922,19 @@
                     ticker.innerHTML = `<span class="ticker-segment">${tickerHtml}</span><span class="ticker-segment" aria-hidden="true">${tickerHtml}</span>`;
                     resetTickerAnimation();
                 }
+                document.querySelectorAll('.live-tracker').forEach(widget => {
+                    if (!widget.dataset.liveExpiresAt) {
+                        widget.dataset.liveExpiresAt = requestStarted + Number(widget.dataset.liveTtl || 0) * 1000;
+                    }
+                });
+                expireLiveTrackers();
                 lastSuccessfulFetch = Date.now();
                 const connectionStatus = document.getElementById('connection-status');
                 connectionStatus.textContent = data.cache_stale ? 'Sports feed interrupted · Scores may be outdated' : '';
                 connectionStatus.hidden = !data.cache_stale;
 
             } catch(e) {
+                expireLiveTrackers(true);
                 console.warn('Keeping previous scoreboard data:', e);
                 const status = document.getElementById('connection-status');
                 status.textContent = lastSuccessfulFetch ? 'Connection interrupted · Showing saved scores' : 'Waiting for score service · Retrying automatically';

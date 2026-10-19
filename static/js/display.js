@@ -42,6 +42,11 @@
             collapsed: preference === 'hidden' || (preference === 'auto' && mode === 'ticker'),
         };
     }
+    function topBarState(showTitle, showTime, clockFormat) {
+        const title = showTitle !== false;
+        const time = showTime !== false && clockFormat !== 'hidden';
+        return {title, time, separator: title && time, empty: !title && !time};
+    }
     function periodScore(value) {
         if (typeof value === 'number') return Number.isInteger(value) && value >= 0 ? String(value) : '—';
         if (typeof value === 'string' && (/^\d+$/.test(value) || value === 'X')) return value;
@@ -92,7 +97,7 @@
         const number = Number(value);
         return Number.isFinite(number) && number >= minimum ? Math.min(maximum, number) : fallback;
     }
-    const display = {escapeHtml, safeUrl, renderValue, normalizeMode, normalizeHeaderVisibility, headerState, renderPeriodTable, collegeRank, dayKey, gameKey, duration};
+    const display = {escapeHtml, safeUrl, renderValue, normalizeMode, normalizeHeaderVisibility, headerState, topBarState, renderPeriodTable, collegeRank, dayKey, gameKey, duration};
     if (typeof module === 'object' && module.exports) module.exports = display;
     else root.ScoreboardDisplay = display;
 }(typeof window === 'undefined' ? globalThis : window));

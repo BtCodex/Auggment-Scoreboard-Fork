@@ -33,7 +33,7 @@ class BackendImprovementTests(unittest.TestCase):
         for name, value in {'SETTINGS_FILE': str(self.directory / 'settings.json'),
                             'KIOSK_CONFIG_FILE': str(self.directory / 'kiosk.json'),
                             'SCORE_CACHE_FILE': str(self.directory / 'score_cache.json'),
-                            '_score_requests': {}, '_cache_errors': {}, '_requested_leagues': {},
+                            '_score_requests': {}, '_score_event_received_at': {}, '_cache_errors': {}, '_requested_leagues': {},
                             '_last_refresh_attempt': 0, '_last_snapshot_write': 0,
                             '_ap_poll_request': {'retry_at': float('inf'), 'failures': 0},
                             '_score_details': scoreboard.ScoreDetailsCache(),

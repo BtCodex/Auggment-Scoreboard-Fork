@@ -10,7 +10,7 @@ Keep the working card untouched. Power down before removing it; keep a complete
 image backup somewhere other than the card. Use a spare card for testing. If unsure
 which disk an imaging tool will overwrite, stop and check before proceeding.
 
-The branch for this update is `improve/scorecard-details-and-android` in
+The branch for this update is `improve/live-game-trackers-and-bars` in
 `BtCodex/Auggment-Scoreboard-Fork`. Download/clone that branch into a separate
 candidate directory on the test system. Do not copy candidate settings or uploads
 over the working application's files.
@@ -28,7 +28,7 @@ matrix is configured for 3.9, 3.11 and 3.12 but is not a physical ARM test.
 On a fresh Pi OS test card with a regular user account:
 
 ```bash
-git clone --branch improve/scorecard-details-and-android https://github.com/BtCodex/Auggment-Scoreboard-Fork.git scoreboard-candidate
+git clone --branch improve/live-game-trackers-and-bars https://github.com/BtCodex/Auggment-Scoreboard-Fork.git scoreboard-candidate
 cd scoreboard-candidate
 sudo bash install.sh
 ```
@@ -126,8 +126,8 @@ user readability. The copy block creates any missing directories:
 
 - app.py, score_details.py and version.txt
 - templates/index.html, templates/settings.html, templates/login.html
-- static/css/main.css, static/css/display-modes.css
-- static/js/clock.js, static/js/display.js
+- static/css/main.css, static/css/display-modes.css, static/css/live-widgets.css
+- static/js/clock.js, static/js/display.js, static/js/live-widgets.js
 - static/data/football-teams-2026.json
 - start_kiosk.sh, setup_kiosk_service.sh, install.sh
 - scripts/network_helper.py
@@ -148,8 +148,10 @@ templates/settings.html
 templates/login.html
 static/css/main.css
 static/css/display-modes.css
+static/css/live-widgets.css
 static/js/clock.js
 static/js/display.js
+static/js/live-widgets.js
 static/data/football-teams-2026.json
 start_kiosk.sh
 setup_kiosk_service.sh
@@ -175,7 +177,10 @@ The SEC/Pac-12 conference correction also migrates stored filter IDs and writes
 `conference_filters_version: 2` on save. Keep the pre-upgrade settings backup for
 rollback; copying only old application code would misinterpret migrated filters.
 Header Visibility defaults to Automatic; clock and other presentation choices
-remain independent. Android files/tools/APKs are not required on the Pi.
+remain independent. The new Show top time bar and Show top name/title bar switches
+default on to preserve older settings. Changing either switch on the phone selects
+Always Show; you can select Automatic/Always Hide afterward. Both switches and the
+clock format persist without restarting. Android files/tools/APKs are not required on the Pi.
 Existing paired server/kiosk devices should be upgraded together: heartbeat and
 privileged update requests now require their existing pairing token.
 

@@ -1,11 +1,11 @@
 # Auggmented Scoreboard improvement and quality-control report
 
-Branch: `improve/scorecard-details-and-android` (based on `improve/pi-scoreboard-reliability`).
+Latest branch: `improve/live-game-trackers-and-bars`, building on the prior scorecard/Android candidate.
 
 The latest implementation and exact validation results are in
-[the scorecard/coverage/Android update report](docs/UPDATE_REPORT.md): 234 Python
-tests, 34 JavaScript tests, 28 Android Java policy checks, both Chromium suites,
-and an actual signed server-connected APK. Read its manual-upgrade requirement
+[the live tracker update report](docs/LIVE_WIDGETS_UPDATE.md): 275 Python
+tests, 53 JavaScript tests, 28 Android Java policy checks, all three Chromium suites,
+and the existing signed server-connected APK. Read its manual-upgrade requirement
 before installation; the older updater cannot copy the newly added module/catalog.
 
 **Ready for controlled physical testing; not verified for unattended 24/7 use.**

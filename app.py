@@ -59,6 +59,10 @@ _refresh_lock = threading.Lock()
 _last_refresh_attempt = 0.0
 _score_request_lock = threading.Lock()
 _score_requests = {}  # Bounded daily-response cache, shared by all displays.
+# Only successful provider fetches renew these transient live-state timestamps.
+# Never persisted: an offline restart may retain scores, but not ball/runner state.
+_score_event_received_at = {}
+LIVE_DETAIL_MAX_AGE = 90
 SCORE_CACHE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'score_cache.json')
 _last_snapshot_write = 0.0
 _last_snapshot_fingerprint = None
@@ -669,6 +673,8 @@ def get_settings():
         "timezone": "America/Chicago",
         "clock_format": "12h",
         "header_visibility": "auto",
+        "show_time_bar": True,
+        "show_title_bar": True,
         "display_mode": "hybrid",
         "score_refresh": {"live_seconds": 30, "upcoming_seconds": 300,
                           "idle_seconds": 900, "final_seconds": 3600},
@@ -761,7 +767,7 @@ def _validate_settings(data):
                    'slide_transition': ('slide-right', 'slide-left', 'slide-top', 'slide-bottom', 'fade')}
         if key in data and data[key] not in choices[key]:
             raise ValueError('Invalid ' + key)
-    for key in ('show_logo_slide', 'football_priority', 'server_enable_display'):
+    for key in ('show_logo_slide', 'football_priority', 'server_enable_display', 'show_time_bar', 'show_title_bar'):
         if key in data and not isinstance(data[key], bool):
             raise ValueError(key + ' must be true or false')
     for key in ('leagues', 'teams', 'nascar_favorites', 'indycar_favorites', 'f1_favorites', 'golf_favorites'):
@@ -1286,6 +1292,49 @@ def _ap_rank(competitor, event):
     return rank if type(rank) is int and 1 <= rank <= 25 else None
 
 
+def _live_event_signature(event):
+    """Identify the current live situation, without retaining large play histories."""
+    try:
+        competition = event['competitions'][0]
+        situation = competition.get('situation') or {}
+        keys = ('possession', 'possessionText', 'down', 'distance', 'yardLine',
+                'isRedZone', 'downDistanceText', 'shortDownDistanceText',
+                'onFirst', 'onSecond', 'onThird', 'outs')
+        state = [event.get('status'), competition.get('status'),
+                 {key: situation[key] for key in keys if key in situation},
+                 [(c.get('homeAway'), c.get('score')) for c in competition.get('competitors', [])]]
+        return hashlib.sha256(json.dumps(state, sort_keys=True).encode()).digest()
+    except (KeyError, TypeError, IndexError, AttributeError, ValueError):
+        return None
+
+
+def _live_detail_ttl(path, event):
+    stamp = _score_event_received_at.get(str(event.get('id', '')))
+    if path in _cache_errors or not stamp or stamp[1] != _live_event_signature(event):
+        return 0
+    age = time_module.monotonic() - stamp[0]
+    return max(0, LIVE_DETAIL_MAX_AGE - age) if age >= 0 else 0
+
+
+def _trim_live_details(data, elapsed=0, stale=False):
+    """Forward a kiosk response without extending the upstream live-state lifetime."""
+    data = dict(data)
+    teams = []
+    for card in data.get('teams', []):
+        card = dict(card)
+        if not any(key in card for key in ('live_detail_ttl_seconds', 'football_tracker', 'baseball_tracker')):
+            teams.append(card)  # Older servers retain their original score payload.
+            continue
+        ttl = card.get('live_detail_ttl_seconds', 0)
+        ttl = max(0, min(ttl, LIVE_DETAIL_MAX_AGE) - elapsed) if type(ttl) in (int, float) else 0
+        card['live_detail_ttl_seconds'] = 0 if stale else ttl
+        if stale or not ttl:
+            card.update(football_tracker=None, baseball_tracker=None)
+        teams.append(card)
+    data['teams'] = teams
+    return data
+
+
 def _request_score_events(url, session=None, ttl=30):
     """Share provider requests, retain successes and exponentially back off errors.
 
@@ -1315,6 +1364,12 @@ def _request_score_events(url, session=None, ttl=30):
             if payload['events'] and not events:
                 raise ValueError('ESPN response contains no valid events')
             fetched_at = time_module.monotonic()
+            for event in events:
+                key = str(event['id'])
+                _score_event_received_at.pop(key, None)
+                _score_event_received_at[key] = (fetched_at, _live_event_signature(event))
+            while len(_score_event_received_at) > 4096:
+                del _score_event_received_at[next(iter(_score_event_received_at))]
             _score_requests[url] = {'events': events, 'fetched_at': fetched_at,
                                     'retry_at': fetched_at + _events_refresh_interval(events), 'failures': 0}
             return events
@@ -2723,6 +2778,11 @@ def _build_data_response(active_leagues, active_teams, active_lc, tz_str, settin
                     if (is_fav or priority_game) and in_window and game_key not in fav_card_keys:
                         fav_card_keys.add(game_key)
                         details = _score_details.get(path, event, home, away)
+                        live_ttl = (_live_detail_ttl(path, event)
+                                    if details.get('football_tracker') or details.get('baseball_tracker') else 0)
+                        if not live_ttl:
+                            details.update(football_tracker=None, baseball_tracker=None)
+                        details['live_detail_ttl_seconds'] = live_ttl
                         fav_cards.append({
                             "league_path": path,
                             "event_id": event.get("id", ""),
@@ -2784,6 +2844,8 @@ def _build_data_response(active_leagues, active_teams, active_lc, tz_str, settin
         "logo_version": _logo_version(),
         "clock_format": settings.get('clock_format', '12h'),
         "header_visibility": settings.get('header_visibility', 'auto'),
+        "show_time_bar": settings.get('show_time_bar', True),
+        "show_title_bar": settings.get('show_title_bar', True),
         "timezone": tz_str,
         "slide_playlist": settings.get('slide_playlist', []),
         "slide_duration": settings.get('slide_duration', 8),
@@ -3199,6 +3261,8 @@ def _kiosk_display_data(data, settings, tz_str):
         data[key] = settings.get(key, fallback)
     data['clock_format']     = settings.get('clock_format', '12h')
     data['header_visibility'] = settings.get('header_visibility', 'auto')
+    data['show_time_bar'] = settings.get('show_time_bar', True)
+    data['show_title_bar'] = settings.get('show_title_bar', True)
     data['timezone']         = tz_str
     data['specials']         = [
         s for s in settings.get('specials', [])
@@ -3237,11 +3301,13 @@ def data_api():
                 for key in ('date_windows', 'football_priority', 'nascar_favorites',
                             'indycar_favorites', 'f1_favorites', 'golf_favorites'):
                     payload[key] = settings.get(key)
+                started = time_module.monotonic()
                 r = requests.post(f"{server_url}/api/data", json=payload, timeout=10)
                 if r.ok:
                     data = r.json()
-                    if not isinstance(data, dict):
+                    if not isinstance(data, dict) or not isinstance(data.get('teams'), list) or not isinstance(data.get('ticker_parts', []), list):
                         raise ValueError('Invalid server data')
+                    data = _trim_live_details(data, time_module.monotonic() - started)
                     _kiosk_server_unreachable = False
                     _kiosk_last_data = data
                     return jsonify(_kiosk_display_data(data, settings, tz_str))
@@ -3249,7 +3315,7 @@ def data_api():
                 pass
         if server_url and _kiosk_last_data is not None:
             _kiosk_server_unreachable = True
-            retained = dict(_kiosk_last_data)
+            retained = _trim_live_details(_kiosk_last_data, stale=True)
             retained['cache_stale'] = True
             retained['cache_errors'] = {**retained.get('cache_errors', {}),
                                         'kiosk': 'Server unreachable; showing saved scores'}

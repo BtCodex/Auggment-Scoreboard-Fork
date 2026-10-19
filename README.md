@@ -39,7 +39,7 @@ It pulls real-time scores from ESPN for the major pro and college leagues, plus 
 
 **1. Prepare the OS**
 
-For the latest development candidate, see [the update report](docs/UPDATE_REPORT.md),
+For the latest development candidate, see [the live-tracker update report](docs/LIVE_WIDGETS_UPDATE.md),
 [2026 team coverage](docs/TEAM_COVERAGE_2026.md), and
 [Android viewer/APK instructions](docs/ANDROID_VIEWER.md).
 

@@ -46,7 +46,7 @@ class QualityTests(unittest.TestCase):
             '_ap_poll_request': {'retry_at': float('inf'), 'failures': 0},
             '_score_details': scoreboard.ScoreDetailsCache(),
             '_team_picker_cache': {},
-            '_score_requests': {}, '_cache_errors': {}, '_requested_leagues': {}, '_last_refresh_attempt': 0,
+            '_score_requests': {}, '_score_event_received_at': {}, '_cache_errors': {}, '_requested_leagues': {}, '_last_refresh_attempt': 0,
             '_kiosk_last_data': None, '_kiosk_server_unreachable': False,
             '_weather_retry_at': 0, '_weather_city': None, 'WEATHER_CACHE': [None],
         }.items():

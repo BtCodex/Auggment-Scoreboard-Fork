@@ -44,9 +44,11 @@ test('display hides clock and separator, then restores both without a reload', (
     const end = template.indexOf('        setInterval(updateClock, 1000);', start);
     const code = template.slice(start, end)
         .replace('{{ settings.clock_format | tojson }}', '"hidden"')
-        .replace('{{ settings.timezone | tojson }}', '"UTC"');
-    const elements = {'top-clock': {textContent: ''}, 'header-sep': {}};
-    const context = vm.createContext({ScoreboardClock: clock, Date,
+        .replace('{{ settings.timezone | tojson }}', '"UTC"')
+        .replace('{{ settings.show_time_bar | default(true) | tojson }}', 'true')
+        .replace('{{ settings.show_title_bar | default(true) | tojson }}', 'true');
+    const elements = {'top-clock': {textContent: ''}, 'header-sep': {}, 'display-name': {}, weather: {}};
+    const context = vm.createContext({ScoreboardClock: clock, ScoreboardDisplay: require('../static/js/display.js'), Date,
         document: {getElementById: id => elements[id]}});
     vm.runInContext(code + '\nupdateClock();', context);
     assert.equal(elements['top-clock'].hidden, true);

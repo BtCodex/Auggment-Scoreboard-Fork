@@ -227,6 +227,12 @@
             </div>
         </div>
 
+        <div class="row" style="margin-top:16px;">
+            <label><input type="checkbox" id="show_time_bar" onchange="document.getElementById('header_visibility').value='always'"> Show top time bar</label>
+            <label><input type="checkbox" id="show_title_bar" onchange="document.getElementById('header_visibility').value='always'"> Show top name/title bar</label>
+        </div>
+        <p>These switches independently control the clock and the name/weather. Changing a switch selects Always Show so your chosen bars stay visible. You can still select Automatic or Always Hide afterward. A Hidden clock stays hidden; disabling both bars reclaims the header space.</p>
+
         <div style="margin-top:24px;">
             <label style="margin-bottom:10px;">Orientation</label>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
@@ -2002,6 +2008,8 @@
         document.getElementById('clock_format').value = ['12h', '24h', 'hidden'].includes(currentSettings.clock_format) ? currentSettings.clock_format : '12h';
         document.getElementById('display_mode').value = currentSettings.display_mode || 'hybrid';
         document.getElementById('header_visibility').value = ScoreboardDisplay.normalizeHeaderVisibility(currentSettings.header_visibility);
+        document.getElementById('show_time_bar').checked = currentSettings.show_time_bar !== false;
+        document.getElementById('show_title_bar').checked = currentSettings.show_title_bar !== false;
         const refresh = currentSettings.score_refresh || {};
         for (const [id, key, fallback] of [['refresh_live','live_seconds',30], ['refresh_upcoming','upcoming_seconds',300], ['refresh_idle','idle_seconds',900], ['refresh_final','final_seconds',3600]]) {
             document.getElementById(id).value = refresh[key] ?? fallback;
@@ -2177,6 +2185,8 @@
             clock_format:   document.getElementById('clock_format').value,
             display_mode: document.getElementById('display_mode').value,
             header_visibility: document.getElementById('header_visibility').value,
+            show_time_bar: document.getElementById('show_time_bar').checked,
+            show_title_bar: document.getElementById('show_title_bar').checked,
             score_refresh: {
                 live_seconds: Number(document.getElementById('refresh_live').value),
                 upcoming_seconds: Number(document.getElementById('refresh_upcoming').value),

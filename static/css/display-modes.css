@@ -183,7 +183,9 @@ body.pg-index .tick-rank-badge {
 
 /* Explicit header choices apply to every display style. Automatic retains
    its existing fade cycle, including the full-screen ticker presentation. */
-body.pg-index.header-hidden #main-header { display: none; }
+body.pg-index.header-hidden #main-header { display: none !important; }
+/* Author display rules otherwise override the browser's native [hidden] rule. */
+body.pg-index #main-header [hidden] { display: none !important; }
 body.pg-index.header-hidden #main-stage .slide { height: 95%; }
 body.pg-index.display-ticker.header-always #main-header { display: flex; }
 body.pg-index.display-ticker.header-always #main-footer { height: auto; flex: 1; min-height: 0; }

@@ -44,6 +44,20 @@ These checks have not been executed on your Pi.
 Independent dual-HDMI profiles are deferred. Do not count a second mirrored window
 as independent-display support; see DUAL_DISPLAY_PLAN.md.
 
+## Live widgets and separate bars
+
+- [ ] On real live NFL/CFB games, compare possession/down/distance/yard line and
+  quarter/clock against ESPN. The field is normalized with offense moving right.
+  Confirm goal-to-go/red zone, possession changes and final/halftime suppression.
+- [ ] On real live MLB games, compare each base, outs, Top/Bottom and inning,
+  including extras. Missing flags must hide the diamond, not assume empty bases.
+- [ ] Interrupt sports data and the display's API separately. Main scores/periods
+  remain; transient widgets disappear on failure or within 90 seconds of fetch.
+  Restart offline and confirm snapshots do not resurrect live widgets. Reconnect.
+- [ ] Save both top-bar switches independently from the phone; check actual title,
+  weather and clock visibility, clock format retained, both-off reclaimed space,
+  all three modes, paired kiosk preferences, reload and reboot persistence.
+
 ## Additional football controls
 
 - [ ] Save each football display option from the phone; confirm cards and ticker agree.

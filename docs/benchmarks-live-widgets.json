@@ -1,0 +1,45 @@
+{
+  "environment": {
+    "python": "3.12.14",
+    "architecture": "x86_64",
+    "platform": "Linux",
+    "hardware": "cloud development host; not Raspberry Pi"
+  },
+  "method": {
+    "command": "python scripts/benchmark_live.py --output docs/benchmarks-live-widgets.json",
+    "script": "scripts/benchmark_live.py",
+    "measurement": "_build_data_response plus compact UTF-8 JSON serialization; perf_counter_ns timings",
+    "isolation": "Temporary runtime copy and settings; HTTP forbidden; workers disabled",
+    "freshness": "Synthetic successful-fetch monotonic stamps and actual event signatures; expiry asserted",
+    "p95": "Nearest-rank percentile, sorted sample at ceil(0.95 * 300) - 1",
+    "heap": "tracemalloc retained allocation delta over 50 extra renders after gc; RSS is process high-water"
+  },
+  "scenario": {
+    "synthetic_games": 96,
+    "leagues": 4,
+    "favorite_cards": 96,
+    "period_tables": 96,
+    "football_trackers": 48,
+    "baseball_trackers": 24,
+    "external_requests": 0,
+    "measured_iterations": 300,
+    "warmup_iterations": 20,
+    "retention_iterations": 50,
+    "payload_bytes": 121722
+  },
+  "results": {
+    "median_render_json_ms": 18.481,
+    "p95_render_json_ms": 27.433,
+    "max_render_json_ms": 30.384,
+    "rss_high_water_before_kib": 44392,
+    "rss_high_water_after_kib": 44648,
+    "retained_python_heap_delta_after_50_renders_bytes": 72831,
+    "traced_heap_peak_bytes": 643105
+  },
+  "limits": [
+    "Synthetic cached data; excludes network latency, Chromium, image loading and SD writes.",
+    "Different host load/fixtures/JSON serialization can affect comparison with previous benchmarks.",
+    "Short benchmark is not proof against leaks or a 24/7 soak test.",
+    "No Raspberry Pi CPU/RAM/temperature measurements were made."
+  ]
+}

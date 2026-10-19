@@ -3,6 +3,16 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const display = require('../static/js/display.js');
 
+test('manual time/title switches remain independent of clock format', () => {
+    for (const title of [true, false]) for (const time of [true, false]) for (const format of ['12h', '24h', 'hidden']) {
+        assert.deepEqual(display.topBarState(title, time, format), {
+            title, time: time && format !== 'hidden', separator: title && time && format !== 'hidden',
+            empty: !title && (!time || format === 'hidden'),
+        });
+    }
+    assert.deepEqual(display.topBarState(undefined, undefined, '12h'), {title:true, time:true, separator:true, empty:false});
+});
+
 test('display modes preserve hybrid defaults and accept the two focused modes', () => {
     assert.equal(display.normalizeMode(undefined), 'hybrid');
     assert.equal(display.normalizeMode('bad'), 'hybrid');
