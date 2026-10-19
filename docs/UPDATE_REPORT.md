@@ -3,6 +3,11 @@
 Candidate branch: `improve/scorecard-details-and-android`, based on `a6ed242` from
 `improve/pi-scoreboard-reliability`. Application version: `1.4.0-dev`.
 
+The code and test APK are pushed. Automatic PR creation is blocked by Forbidden
+responses from GitHub GraphQL and REST; [the prepared PR](PULL_REQUEST.md) includes
+the exact title, body, base/head branches and comparison link. No PR is claimed
+to have been opened.
+
 Ready for controlled physical testing after the checks below; **not verified for
 unattended 24/7 operation**. No Raspberry Pi, home-network device, services or
 working installation was accessed or modified.
