@@ -5,6 +5,10 @@ Candidate: `improve/live-game-trackers-and-bars`, based on
 No Raspberry Pi or existing installation was accessed, changed or deployed to.
 This is a candidate for controlled physical testing, not a 24/7 readiness claim.
 
+Implementation commit `29d1ea6` is pushed to that branch. Automatic PR creation
+returned Forbidden from both GitHub GraphQL and REST. No PR was opened; use
+[the prepared comparison/title/body](PULL_REQUEST_LIVE.md) to create it on GitHub.
+
 ## What changed
 
 - Compact live NFL/CFB field below the score: possession, normalized ball

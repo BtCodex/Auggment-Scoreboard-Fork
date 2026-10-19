@@ -6,6 +6,9 @@ Head: `improve/live-game-trackers-and-bars`
 
 [Compare and create the PR](https://github.com/BtCodex/Auggment-Scoreboard-Fork/compare/improve/scorecard-details-and-android...improve/live-game-trackers-and-bars?expand=1).
 
+The implementation is pushed (`29d1ea6`). PR creation from this cloud returned
+Forbidden from both GitHub GraphQL and REST; no PR is claimed to exist.
+
 Title: **Add compact live field/base trackers and independent top-bar switches**
 
 ---
