@@ -486,6 +486,9 @@
                     const homeFavCls = t.home_is_fav ? 'fav-team-abbr' : '';
                     const awayScoreFavCls = t.away_is_fav && !awayWinClass ? 'fav-team-score' : '';
                     const homeScoreFavCls = t.home_is_fav && !homeWinClass ? 'fav-team-score' : '';
+                    const awayRank = ScoreboardDisplay.collegeRank(t.league_path, t.away_rank);
+                    const homeRank = ScoreboardDisplay.collegeRank(t.league_path, t.home_rank);
+                    const collegeFootball = t.league_path === 'football/college-football';
 
                     let centerContent = '';
                     let statusContent = '';
@@ -529,8 +532,11 @@
                                 ${statusContent}
                                 <div class="teams-grid">
                                     <div class="team-block away ${awayWinClass}">
-                                        ${t.away_logo ? `<img src="${t.away_logo}" alt="" decoding="async" class="team-logo${t.away_is_fav ? ' fav-team-logo' : ''}" onerror="this.style.display='none'">` : ''}
-                                        <span class="team-abbr ${awayFavCls}">${t.away_rank ? '#' + t.away_rank + ' ' : ''}${t.away_name}</span>
+                                        ${t.away_logo || awayRank ? `<div class="team-logo-lockup${awayRank ? ' ranked' : ''}">
+                                            ${t.away_logo ? `<img src="${t.away_logo}" alt="" decoding="async" class="team-logo${t.away_is_fav ? ' fav-team-logo' : ''}" onerror="this.style.display='none'">` : ''}
+                                            ${awayRank ? `<span class="team-rank-badge" aria-label="AP ranking ${awayRank}">#${awayRank}</span>` : ''}
+                                        </div>` : ''}
+                                        <span class="team-abbr ${awayFavCls}">${!collegeFootball && t.away_rank ? '#' + t.away_rank + ' ' : ''}${t.away_name}</span>
                                         ${t.is_pre && t.away_record
                                             ? `<span class="team-record ${awayFavCls}">${t.away_record}</span>`
                                             : `<span class="team-score-v ${stateClass} ${awayWinClass} ${awayScoreFavCls}">${t.away_score}</span>`}
@@ -540,8 +546,11 @@
                                         ${statusVContent}
                                     </div>
                                     <div class="team-block home ${homeWinClass}">
-                                        ${t.home_logo ? `<img src="${t.home_logo}" alt="" decoding="async" class="team-logo${t.home_is_fav ? ' fav-team-logo' : ''}" onerror="this.style.display='none'">` : ''}
-                                        <span class="team-abbr ${homeFavCls}">${t.home_rank ? '#' + t.home_rank + ' ' : ''}${t.home_name}</span>
+                                        ${t.home_logo || homeRank ? `<div class="team-logo-lockup${homeRank ? ' ranked' : ''}">
+                                            ${t.home_logo ? `<img src="${t.home_logo}" alt="" decoding="async" class="team-logo${t.home_is_fav ? ' fav-team-logo' : ''}" onerror="this.style.display='none'">` : ''}
+                                            ${homeRank ? `<span class="team-rank-badge" aria-label="AP ranking ${homeRank}">#${homeRank}</span>` : ''}
+                                        </div>` : ''}
+                                        <span class="team-abbr ${homeFavCls}">${!collegeFootball && t.home_rank ? '#' + t.home_rank + ' ' : ''}${t.home_name}</span>
                                         ${t.is_pre && t.home_record
                                             ? `<span class="team-record ${homeFavCls}">${t.home_record}</span>`
                                             : `<span class="team-score-v ${stateClass} ${homeWinClass} ${homeScoreFavCls}">${t.home_score}</span>`}
@@ -815,10 +824,15 @@
                     (section.games || []).forEach((g, i) => {
                         const flash = flashIds.has(ScoreboardDisplay.gameKey(g));
                         const cls = flash ? 'flash-yellow' : g.color_state;
-                        const away = `${g.away_rank ? '#' + g.away_rank + ' ' : ''}${g.away || ''}`;
-                        const home = `${g.home_rank ? '#' + g.home_rank + ' ' : ''}${g.home || ''}`;
-                        const awayLogo = g.away_logo ? `<img class="tick-logo" decoding="async" src="${g.away_logo}" alt="" onerror="this.hidden=true">` : '';
-                        const homeLogo = g.home_logo ? `<img class="tick-logo" decoding="async" src="${g.home_logo}" alt="" onerror="this.hidden=true">` : '';
+                        const awayRank = ScoreboardDisplay.collegeRank(g.league_path, g.away_rank);
+                        const homeRank = ScoreboardDisplay.collegeRank(g.league_path, g.home_rank);
+                        const collegeFootball = g.league_path === 'football/college-football';
+                        const away = `${!collegeFootball && g.away_rank ? '#' + g.away_rank + ' ' : ''}${g.away || ''}`;
+                        const home = `${!collegeFootball && g.home_rank ? '#' + g.home_rank + ' ' : ''}${g.home || ''}`;
+                        const awayLogo = (g.away_logo ? `<img class="tick-logo" decoding="async" src="${g.away_logo}" alt="" onerror="this.hidden=true">` : '') +
+                            (awayRank ? `<span class="tick-rank-badge" aria-label="AP ranking ${awayRank}">#${awayRank}</span>` : '');
+                        const homeLogo = (g.home_logo ? `<img class="tick-logo" decoding="async" src="${g.home_logo}" alt="" onerror="this.hidden=true">` : '') +
+                            (homeRank ? `<span class="tick-rank-badge" aria-label="AP ranking ${homeRank}">#${homeRank}</span>` : '');
                         let gameText;
                         if (g.away && g.home && g.color_state !== 'pre') {
                             const a = g.winner === 'away' ? `<strong>${away}</strong>` : away;

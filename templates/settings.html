@@ -46,6 +46,15 @@
 
 
     <div class="section">
+        <div class="section-title">Football display</div>
+        <label for="football_display">Show football games</label>
+        <select id="football_display">
+            <option value="both">CFB and NFL</option>
+            <option value="cfb">College football only</option>
+            <option value="nfl">NFL only</option>
+            <option value="weekly">Automatic: CFB Saturday, NFL Sunday, both weekdays</option>
+        </select>
+        <p>Applies to scorecards and the ticker. Automatic mode switches at midnight in your selected timezone. Other sports and saved favorites are preserved. Enable the leagues below or use football priority to include their games.</p>
         <label for="football_priority"><input type="checkbox" id="football_priority"> Prioritize Texas A&amp;M, SEC, Top 25 &amp; NFL</label>
         <p>Includes college football and NFL without removing your favorites. College slides are ordered Texas A&amp;M first, then SEC, then other ranked teams. Custom playlist order remains available.</p>
     </div>
@@ -1989,6 +1998,7 @@
         }
         document.getElementById('show_logo_slide').checked = currentSettings.show_logo_slide !== false;
         document.getElementById('football_priority').checked = currentSettings.football_priority !== false;
+        document.getElementById('football_display').value = currentSettings.football_display || 'both';
         const tzSel = document.getElementById('timezone');
         [...tzSel.options].forEach(o => o.selected = (o.value === currentSettings.timezone));
 
@@ -2164,6 +2174,7 @@
             },
             show_logo_slide: document.getElementById('show_logo_slide').checked,
             football_priority: document.getElementById('football_priority').checked,
+            football_display: document.getElementById('football_display').value,
             cast_orientation: document.querySelector('.orient-btn.active')?.dataset.val || 'auto',
             theme:          document.querySelector('.theme-btn.active')?.dataset.val || 'dark',
             leagues,

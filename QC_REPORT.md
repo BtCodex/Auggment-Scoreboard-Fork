@@ -6,6 +6,23 @@ Branch: `improve/pi-scoreboard-reliability`.
 All work was done in the development repository. No access, deployment, uninstall,
 service change or modification of the actual Raspberry Pi occurred.
 
+## Latest additions: football display and AP rankings
+
+- Phone-accessible CFB/NFL/both selector plus automatic Saturday CFB, Sunday NFL,
+  weekdays both. Uses the configured timezone and DST; preferences persist.
+- Filters cards and ticker without deleting favorites, other sports or artwork.
+  Paired kiosks retain both leagues so offline settings/midnight switches work.
+- Verified AP Top 25 badges beside ranked CFB team logos in cards and ticker.
+  An explicit AP poll lookup replaces unidentified curated ranks for these badges;
+  existing curated rankings remain available for game prioritization. Poll requests
+  are normally hourly, with bounded retry/backoff and retained snapshot recovery.
+- Badges show the latest available AP poll for the matching season, including on
+  final-game cards. They do not claim historical rankings at kickoff. Missing AP
+  data/season or unranked teams produce no badge. No extra runtime dependencies.
+- Added 16 football-display tests, 14 AP tests, 3 JS rank tests and browser checks
+  for phone saves, filtering and logo-adjacent rank bounds. See
+  [football controls and testing](docs/FOOTBALL_DISPLAY.md).
+
 ## Improvements and confirmed bugs fixed
 
 ### Clock and schedules
@@ -93,24 +110,26 @@ service change or modification of the actual Raspberry Pi occurred.
 
 | Check | Final result |
 | --- | --- |
-| Python unittest discovery |128 passed, 0 failed, 0 skipped |
+| Python unittest discovery |158 passed, 0 failed, 0 skipped |
 | JavaScript clock tests |15 passed, 0 failed |
 | JavaScript display-helper tests |7 passed, 0 failed |
+| JavaScript ranking badge tests |3 passed, 0 failed |
 | Chromium integrated suite |All assertions passed; no uncaught JS errors |
 | Phone/settings sizes |360×800,390×844,844×390,1080×1920,1920×1080,2560×1080 passed |
 | Scorecard bounds/modes |Phone, portrait, landscape, ultrawide; traditional/LED/hybrid passed |
-| Browser functions |Saving, all reorder controls, live settings/modes, full timing range, rotation, card/ticker highlights, logo removal, empty states, stored text escaping, unavailable fonts, and three-digit score bounds passed |
+| Browser functions |Saving, football selector persistence/filtering, AP badges beside logos, all reorder controls, live settings/modes, full timing range, rotation, card/ticker highlights, logo removal, empty states, stored text escaping, unavailable fonts, and three-digit score bounds passed |
 | Browser failures |HTTP 503, malformed JSON, network failure, retained display and recovery passed |
 | Repeated renders |100 browser refreshes with stable slide count/bounded score history passed |
 | Targeted Ruff lint |F821/F822/F823 undefined-name/control-flow checks passed |
 | Syntax/dependencies |Python compileall, helper and rendered-template JS parsing, individual Bash syntax checks and pip check passed |
 | Service generation |Mock launcher/helper/Server/Kiosk/Combined tests and systemd-analyze verify passed |
 | Actual provider reads |NCAA 25 events, NFL 14, NBA 2, MLB 1, PGA 1; all parsed successfully; 21 scorecards/1 golf card in selected window |
+| New AP provider check |HTTP 200, explicit AP poll dated 2026-10-18, season 2026, 25 ranked teams parsed successfully |
 | Physical Pi and 24–48 hour soak |Not run; required before unattended use |
 | Real custom College GameDay logo |Not supplied in checkout; file preservation tested with fixtures, appearance/checksum needs Pi check |
 | Actual team-logo CDN reads |Returned 403 in this environment; screenshots use colored raster fixtures, not real team/custom artwork |
 
-The 150 deterministic Python/JavaScript tests are separate from browser assertions.
+The 183 deterministic Python/JavaScript tests are separate from browser assertions.
 Expected failure-injection tests log corrupt-cache/disk-full/offline messages; these
 are not unresolved failures. Earlier test/implementation failures were investigated,
 corrected and rerun. One useful systemd validation caught and fixed an invalid
@@ -127,6 +146,9 @@ play. Live/halftime/OT/canceled transitions and provider failures are determinis
 fixtures. Provider cadence/availability can still delay scores.
 
 ## Measured performance and resource estimates
+
+These measurements were obtained before the latest football-filter/AP additions;
+they are retained as the prior baseline, rather than claimed as a new benchmark.
 
 [benchmarks.json](docs/benchmarks.json) records a reproducible offline benchmark:
 96 synthetic games across 4 leagues, 96 cards, 300 measured render+JSON iterations after

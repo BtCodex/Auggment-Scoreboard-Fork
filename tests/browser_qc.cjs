@@ -20,7 +20,7 @@ const assert = require('node:assert/strict');
  // Reset only this isolated fixture so repeated browser runs are independent.
  const baseline=await context.request.post(base+'/api/settings',{data:{
    device_mode:'server',port:5002,display_name:'AGGIE GAMEDAY',clock_format:'12h',
-   display_mode:'hybrid',show_logo_slide:true,football_priority:true,timezone:'America/Chicago',
+   display_mode:'hybrid',show_logo_slide:true,football_priority:true,football_display:'both',timezone:'America/Chicago',
    teams:['football/college-football:TA&M','football/nfl:HOU'],leagues:['football/college-football','football/nfl'],
    slide_duration:2,logo_slide_duration:2,transition_duration_ms:500,ticker_speed:120,
    local_schedule:{rss_feeds:[],items:[],home_team_keywords:[]},
@@ -39,6 +39,22 @@ const assert = require('node:assert/strict');
    console.log(`PASS settings width ${width}x${height}`);
  }
  await page.setViewportSize({width:390,height:844});
+ for (const [mode,paths] of [['cfb',['football/college-football']],['nfl',['football/nfl']],
+                            ['weekly',null],['both',['football/college-football','football/nfl']]]) {
+   await page.locator('#football_display').selectOption(mode);
+   await page.locator('header .btn-save').click();
+   await page.waitForFunction(() => document.querySelector('#settings-message').textContent.includes('Saved.'));
+   await page.reload();
+   await page.waitForFunction(() => settingsReady);
+   assert.equal(await page.locator('#football_display').inputValue(),mode);
+   const slate=await (await context.request.get(base+'/api/data')).json();
+   assert.equal(slate.football_display,mode);
+   if (paths) {
+     assert.deepEqual([...new Set(slate.teams.map(team=>team.league_path))].sort(),[...paths].sort());
+     assert.deepEqual([...new Set(slate.ticker_parts.flatMap(part=>part.games.map(game=>game.league_path)))].sort(),[...paths].sort());
+   }
+ }
+ console.log('PASS phone football mode saves, reloads and filters cards/ticker without losing favorites');
  await page.evaluate(()=>setMode('kiosk'));
  assert.ok(await page.locator('#kiosk-setup-section').isVisible());
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth+1));
@@ -61,7 +77,12 @@ const assert = require('node:assert/strict');
  await page.waitForSelector('.team-abbr');
  assert.equal(await page.locator('#logo-slide').count(),0);
  assert.match(await page.locator('#top-clock').textContent(),/^\d{2}:\d{2}$/);
- assert.ok((await page.locator('.team-abbr').allTextContents()).some(x=>x.includes('#7 TA&M')));
+ assert.ok((await page.locator('.team-abbr').allTextContents()).some(x=>x==='TA&M'));
+ assert.ok(await page.locator('.team-logo-lockup.ranked img + .team-rank-badge[aria-label="AP ranking 7"]').count()>0);
+ assert.ok(await page.locator('#ticker-text .tick-logo + .tick-rank-badge[aria-label="AP ranking 7"]').count()>0);
+ assert.equal(await page.locator('.team-abbr').filter({hasText:'#7'}).count(),0);
+ assert.ok((await page.locator('.team-rank-badge').allTextContents()).every(text=>text==='#7'));
+ console.log('PASS verified AP rank beside logos with no duplicate name prefix or unranked badge');
  for (const [width,height] of [[390,844],[844,390],[1080,1920],[1920,1080],[2560,1080]]) {
    await page.setViewportSize({width,height});
    assert.equal(await page.locator('.slide.active').count(),1);
@@ -205,7 +226,7 @@ const assert = require('node:assert/strict');
    assert.ok(box.x >= -1 && box.y >= -1 && box.x+box.width <= width+1 && box.y+box.height <= height+1, `${name} card out of viewport: ${JSON.stringify(box)}`);
    const contentFits = await page.evaluate(() => {
      const card=document.querySelector('.slide.active .card').getBoundingClientRect();
-     return [...document.querySelectorAll('.slide.active .team-block,.slide.active .center-col,.slide.active .score-display,.slide.active .team-abbr,.slide.active .score-part')].every(el=>{
+     return [...document.querySelectorAll('.slide.active .team-block,.slide.active .center-col,.slide.active .score-display,.slide.active .team-abbr,.slide.active .score-part,.slide.active .team-logo-lockup,.slide.active .team-rank-badge')].every(el=>{
        if (!el.getClientRects().length) return true;
        const rect=el.getBoundingClientRect();
        return rect.left>=card.left-1 && rect.right<=card.right+1 && rect.top>=card.top-1 && rect.bottom<=card.bottom+1;

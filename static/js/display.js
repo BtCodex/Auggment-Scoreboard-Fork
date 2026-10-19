@@ -30,6 +30,11 @@
     function normalizeMode(mode) {
         return ['scoreboard', 'ticker', 'hybrid'].includes(mode) ? mode : 'hybrid';
     }
+    function collegeRank(leaguePath, rank) {
+        // ESPN uses 99 (and missing values) for unranked teams. Never turn
+        // other league standings or malformed provider text into a CFB badge.
+        return leaguePath === 'football/college-football' && Number.isInteger(rank) && rank >= 1 && rank <= 25 ? rank : null;
+    }
     function dayKey(date, timezone) {
         if (!date) return '';
         // A date-only feed item is a calendar date, not UTC midnight.
@@ -51,7 +56,7 @@
         const number = Number(value);
         return Number.isFinite(number) && number >= minimum ? Math.min(maximum, number) : fallback;
     }
-    const display = {escapeHtml, safeUrl, renderValue, normalizeMode, dayKey, gameKey, duration};
+    const display = {escapeHtml, safeUrl, renderValue, normalizeMode, collegeRank, dayKey, gameKey, duration};
     if (typeof module === 'object' && module.exports) module.exports = display;
     else root.ScoreboardDisplay = display;
 }(typeof window === 'undefined' ? globalThis : window));

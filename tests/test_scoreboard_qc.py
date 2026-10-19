@@ -22,6 +22,7 @@ NFL = 'football/nfl'
 
 def event(event_id='1', state='in', home='TA&M', away='ALA', rank=7, days=0):
     return {'id': event_id, 'date': (datetime.now(timezone.utc) + timedelta(days=days)).isoformat(),
+            'season': {'year': datetime.now(timezone.utc).year},
             'status': {'type': {'state': state, 'shortDetail': 'Q3 10:30' if state == 'in' else state}},
             'competitions': [{'competitors': [
                 {'homeAway': 'home', 'score': '24', 'curatedRank': {'current': rank},
@@ -39,7 +40,10 @@ class QualityTests(unittest.TestCase):
             'SETTINGS_FILE': str(Path(self.tmp.name) / 'settings.json'),
             'KIOSK_CONFIG_FILE': str(Path(self.tmp.name) / 'kiosk.json'),
             'UPLOAD_FOLDER': self.tmp.name,
-            '_espn_cache': {'raw_events': {}, 'updated_at': None},
+            '_espn_cache': {'raw_events': {}, 'updated_at': None, 'ap_poll': {
+                'ranks': {'245': 7}, 'season': datetime.now(timezone.utc).year,
+                'date': '2026-10-18T07:00Z', 'updated_at': datetime.now(timezone.utc).isoformat()}},
+            '_ap_poll_request': {'retry_at': float('inf'), 'failures': 0},
             '_score_requests': {}, '_cache_errors': {}, '_requested_leagues': {}, '_last_refresh_attempt': 0,
             '_kiosk_last_data': None, '_kiosk_server_unreachable': False,
             '_weather_retry_at': 0, '_weather_city': None, 'WEATHER_CACHE': [None],

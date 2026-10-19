@@ -50,6 +50,8 @@ with tempfile.TemporaryDirectory(prefix='scoreboard-browser-qc-') as directory:
     professional[0]['competitions'][0]['competitors'][0]['team']['logo'] = '/static/uploads/texans.png'
     professional[0]['competitions'][0]['competitors'][1]['team']['logo'] = '/static/uploads/chiefs.png'
     app._espn_cache['raw_events'] = {CFB: college, NFL: professional}
+    app._espn_cache['ap_poll'] = {'ranks': {'245': 7}, 'season': college[0]['season']['year'],
+                                'date': '2026-10-18T07:00Z', 'updated_at': college[0]['date']}
     app._team_colors_for_league = lambda path: {}
     app.save_settings({'port': 5002, 'leagues': [CFB, NFL], 'teams': [CFB + ':TA&M', NFL + ':HOU'],
                        'display_name': 'AGGIE GAMEDAY', 'color_mode': 'manual', 'slide_duration': 2, 'logo_slide_duration': 2,

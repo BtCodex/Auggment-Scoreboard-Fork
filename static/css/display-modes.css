@@ -133,3 +133,50 @@ body.pg-index.vertical .score-display { font-size: min(18vh, 16vw); }
 body.pg-index .score-part.win { font-size: 1.06em; }
 body.pg-index.phone.vertical .team-abbr { font-size: clamp(28px, 9vw, 48px) !important; }
 body.pg-index.phone.vertical .score-display { font-size: clamp(34px, 10vw, 68px) !important; }
+
+/* Keep CFB rankings beside the logo, leaving the team name easy to scan. */
+body.pg-index .team-logo-lockup {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(4px, .7vw, 18px);
+    width: 100%;
+    height: min(25vh, 14vw);
+    max-width: 100%;
+    min-height: 0;
+    flex-shrink: 1;
+}
+body.pg-index .team-logo-lockup .team-logo {
+    height: 100% !important;
+    max-height: 100%;
+    max-width: 90%;
+    min-width: 0;
+    object-fit: contain;
+}
+body.pg-index .team-logo-lockup.ranked .team-logo { max-width: 70%; }
+body.pg-index .team-rank-badge {
+    flex: 0 0 auto;
+    padding: .1em .25em;
+    border: 1px solid var(--league-label-color);
+    border-radius: .15em;
+    color: var(--league-label-color);
+    background: var(--card-bg);
+    font: 800 clamp(16px, 2.8vw, 46px)/1.1 var(--font-primary);
+    white-space: nowrap;
+}
+body.pg-index.vertical .team-logo-lockup {
+    height: min(33vh, 33vw);
+    max-height: 55%;
+}
+body.pg-index.vertical .team-rank-badge { font-size: clamp(18px, 5vw, 64px); }
+body.pg-index.phone .team-logo-lockup { height: clamp(50px, 13vw, 82px); }
+body.pg-index.phone.vertical .team-logo-lockup { height: clamp(80px, 20dvh, 180px); }
+body.pg-index .tick-rank-badge {
+    display: inline-block;
+    font-size: .65em;
+    font-weight: 800;
+    line-height: 1;
+    padding: .1em .2em;
+    border: 1px solid currentColor;
+    border-radius: .12em;
+}

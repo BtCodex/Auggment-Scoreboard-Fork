@@ -43,3 +43,13 @@ These checks have not been executed on your Pi.
 
 Independent dual-HDMI profiles are deferred. Do not count a second mirrored window
 as independent-display support; see DUAL_DISPLAY_PLAN.md.
+
+## Additional football controls
+
+- [ ] Save each football display option from the phone; confirm cards and ticker agree.
+- [ ] Select Automatic and America/Chicago: Saturday CFB, Sunday NFL, weekdays both.
+  Check a local-midnight switch on the next refresh and persistence after reboot.
+- [ ] Confirm verified AP badges beside ranked CFB logos, no badge on unranked teams,
+  and no changes to saved favorites, other sports or the custom GameDay logo.
+- [ ] If using a paired kiosk, disconnect its server and change football filters;
+  cached games should remain available with the stale-data indicator.

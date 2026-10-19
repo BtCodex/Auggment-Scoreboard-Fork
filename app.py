@@ -68,6 +68,7 @@ _kiosk_last_data = None
 _unpaired_kiosk_id = uuid.uuid4().hex
 _cache_lock = threading.Lock()
 _espn_cache = {"raw_events": {}, "updated_at": None}  # raw_events: path -> [event, ...]
+_ap_poll_request = {'retry_at': 0, 'failures': 0}
 _update_lock = threading.Lock()
 _update_state = {
     "available": None,
@@ -638,6 +639,7 @@ def get_settings():
         "header_color": "#F5A800",
         "leagues": ["football/college-football", "football/nfl", "basketball/nba", "baseball/mlb", "golf/pga"],
         "football_priority": True,
+        "football_display": "both",
         "show_logo_slide": True,
         "teams": ["football/college-football:TA&M", "football/nfl:HOU", "baseball/mlb:HOU", "basketball/nba:HOU"],
         "league_conferences": {},
@@ -720,11 +722,12 @@ def _validate_settings(data):
     for key in ('city', 'display_name', 'header_color', 'font_primary', 'palette_team', 'server_url', 'kiosk_name', 'auth_token'):
         if key in data and not isinstance(data[key], str):
             raise ValueError(key + ' must be text')
-    for key in ('clock_format', 'device_mode', 'theme', 'cast_orientation', 'display_mode', 'color_mode', 'slide_transition'):
+    for key in ('clock_format', 'device_mode', 'theme', 'cast_orientation', 'display_mode', 'color_mode', 'slide_transition', 'football_display'):
         choices = {'clock_format': ('12h', '24h', 'hidden'),
                    'device_mode': ('server', 'kiosk'), 'theme': ('dark', 'light'),
                    'cast_orientation': ('auto', 'horizontal', 'vertical', 'phone'),
                    'display_mode': ('scoreboard', 'ticker', 'hybrid'),
+                   'football_display': ('both', 'cfb', 'nfl', 'weekly'),
                    'color_mode': ('auto', 'manual'),
                    'slide_transition': ('slide-right', 'slide-left', 'slide-top', 'slide-bottom', 'fade')}
         if key in data and data[key] not in choices[key]:
@@ -1152,6 +1155,107 @@ def _priority_leagues(leagues, settings):
     return leagues
 
 
+def _football_display_mode(settings, tz_str, now=None):
+    """Resolve weekly football visibility using the display's local calendar."""
+    mode = settings.get('football_display', 'both')
+    if mode != 'weekly':
+        return mode if mode in ('both', 'cfb', 'nfl') else 'both'
+    now = now if now is not None else datetime.now(timezone.utc)
+    try:
+        weekday = now.astimezone(pytz.timezone(tz_str)).weekday()
+    except pytz.UnknownTimeZoneError:
+        weekday = now.astimezone(timezone.utc).weekday()
+    return {5: 'cfb', 6: 'nfl'}.get(weekday, 'both')
+
+
+def _apply_football_display(data, settings, tz_str, now=None):
+    """Filter presentation only; never alter favorites or retained source data."""
+    mode = _football_display_mode(settings, tz_str, now)
+    hidden = {'cfb': 'football/nfl', 'nfl': 'football/college-football'}.get(mode)
+    result = dict(data)
+    result['football_display'] = settings.get('football_display', 'both')
+    result['football_display_active'] = mode
+    if hidden:
+        result['teams'] = [team for team in data.get('teams', [])
+                           if team.get('league_path') != hidden]
+        parts = []
+        for part in data.get('ticker_parts', []):
+            games = [game for game in part.get('games', [])
+                     if game.get('league_path') != hidden]
+            if games:
+                parts.append({**part, 'games': games})
+        result['ticker_parts'] = parts
+    return result
+
+
+def _parse_ap_poll(payload):
+    """Read the explicitly identified AP poll, never Coaches/CFP/curated ranks."""
+    if not isinstance(payload, dict) or not isinstance(payload.get('rankings'), list):
+        raise ValueError('Invalid college rankings response')
+    for poll in payload['rankings']:
+        if not isinstance(poll, dict) or poll.get('type') != 'ap':
+            continue
+        season = poll.get('season') or {}
+        year = season.get('year') if isinstance(season, dict) else None
+        rows = poll.get('ranks')
+        if type(year) is not int or not 2000 <= year <= 2100 or not isinstance(rows, list) or len(rows) > 100:
+            raise ValueError('Invalid AP poll season or ranks')
+        ranks = {}
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            team = row.get('team') or {}
+            team_id = str(team.get('id', '')) if isinstance(team, dict) else ''
+            rank = row.get('current')
+            if team_id.isascii() and team_id.isdigit() and len(team_id) <= 10 and type(rank) is int and 1 <= rank <= 25:
+                ranks[team_id] = rank
+        if not ranks:
+            raise ValueError('AP poll has no valid ranked teams')
+        return {'ranks': ranks, 'season': year,
+                'date': poll.get('date', '') if isinstance(poll.get('date', ''), str) else '',
+                'updated_at': datetime.now(timezone.utc).isoformat()}
+    raise ValueError('AP poll unavailable')
+
+
+def _refresh_ap_poll():
+    """Low-frequency background lookup, independent of score request success."""
+    now = time_module.monotonic()
+    if now < _ap_poll_request['retry_at']:
+        return False
+    response = None
+    try:
+        response = requests.get(
+            'https://site.api.espn.com/apis/site/v2/sports/football/college-football/rankings',
+            timeout=(3, 8))
+        response.raise_for_status()
+        poll = _parse_ap_poll(response.json())
+        with _cache_lock:
+            _espn_cache['ap_poll'] = poll
+        _ap_poll_request.update(retry_at=now + 3600, failures=0)
+        return True
+    except (requests.RequestException, ValueError) as error:
+        failures = min(5, _ap_poll_request['failures'] + 1)
+        delay = min(3600, 300 * 2 ** (failures - 1))
+        if response is not None:
+            try:
+                delay = max(delay, min(86400, int(response.headers.get('Retry-After', '0'))))
+            except (TypeError, ValueError):
+                pass
+        _ap_poll_request.update(retry_at=now + delay, failures=failures)
+        print(f'[rankings] retaining saved AP poll: {error}')
+        return False
+
+
+def _ap_rank(competitor, event):
+    poll = _espn_cache.get('ap_poll') or {}
+    season = event.get('season') or {}
+    if not isinstance(season, dict) or type(season.get('year')) is not int or season['year'] != poll.get('season'):
+        return None
+    team = competitor.get('team') or {}
+    rank = poll.get('ranks', {}).get(str(team.get('id', ''))) if isinstance(team, dict) else None
+    return rank if type(rank) is int and 1 <= rank <= 25 else None
+
+
 def _request_score_events(url, session=None, ttl=30):
     """Share provider requests, retain successes and exponentially back off errors.
 
@@ -1264,6 +1368,8 @@ def _refresh_espn_cache():
                 with _cache_lock:
                     _cache_errors[path] = str(error)
                 print(f'[cache] {path}: {error}')
+        if 'football/college-football' in leagues:
+            _refresh_ap_poll()
         with _cache_lock:
             _espn_cache['raw_events'] = {key: value for key, value in _espn_cache['raw_events'].items() if key in leagues}
             _espn_cache['league_updated_at'] = {key: value for key, value in _espn_cache.get('league_updated_at', {}).items() if key in leagues}
@@ -1315,6 +1421,19 @@ def _load_score_snapshot():
             _espn_cache.update(raw_events=events, updated_at=updated_at,
                                league_updated_at={path: value for path, value in timestamps.items()
                                                   if path in events and isinstance(value, str)})
+            poll = snapshot.get('ap_poll')
+            if isinstance(poll, dict):
+                try:
+                    validated = _parse_ap_poll({'rankings': [{'type': 'ap',
+                        'season': {'year': poll.get('season')}, 'date': poll.get('date', ''),
+                        'ranks': [{'team': {'id': team_id}, 'current': rank}
+                                  for team_id, rank in poll.get('ranks', {}).items()]}]})
+                    # Preserve the actual fetch time, not the restart time.
+                    dateutil_parser.isoparse(poll['updated_at'])
+                    validated['updated_at'] = poll['updated_at']
+                    _espn_cache['ap_poll'] = validated
+                except (ValueError, TypeError, KeyError, AttributeError):
+                    pass
             for path in events:
                 _cache_errors[path] = 'Restored saved scores; awaiting provider refresh'
         return bool(events)
@@ -1336,7 +1455,8 @@ def _save_score_snapshot(force=False):
             return False
         payload = json.dumps(_espn_cache, separators=(',', ':'))
         fingerprint = (SCORE_CACHE_FILE, hashlib.sha256(json.dumps(
-            _espn_cache['raw_events'], sort_keys=True, separators=(',', ':')).encode()).digest())
+            [_espn_cache['raw_events'], _espn_cache.get('ap_poll')],
+            sort_keys=True, separators=(',', ':')).encode()).digest())
     if not force and fingerprint == _last_snapshot_fingerprint:
         _last_snapshot_write = now
         return False
@@ -2512,7 +2632,10 @@ def _build_data_response(active_leagues, active_teams, active_lc, tz_str, settin
                         curated_rank = team.get('curatedRank') or {}
                         rank = curated_rank.get('current') if isinstance(curated_rank, dict) else None
                         return rank if type(rank) is int and 1 <= rank <= 25 else None
-                    away_rank, home_rank = college_rank(away), college_rank(home)
+                    away_priority_rank, home_priority_rank = college_rank(away), college_rank(home)
+                    away_rank, home_rank = ((_ap_rank(away, event), _ap_rank(home, event))
+                                            if path == 'football/college-football' else
+                                            (away_priority_rank, home_priority_rank))
                     if is_today:
                         league_games.append({
                             "event_id": event.get('id', ''), "league_path": path,
@@ -2539,9 +2662,9 @@ def _build_data_response(active_leagues, active_teams, active_lc, tz_str, settin
                                       c['team']['conference'].get('abbreviation') == 'SEC')
                                      for c in competitors)
                     priority_game = priority and (path == 'football/nfl' or
-                        (path == 'football/college-football' and (is_aggies or is_sec or away_rank or home_rank)))
+                        (path == 'football/college-football' and (is_aggies or is_sec or away_priority_rank or home_priority_rank or away_rank or home_rank)))
                     is_fav = away_is_fav or home_is_fav
-                    priority_order = (0 if is_aggies else 1 if is_sec else 2 if (away_rank or home_rank) else 4) if path == 'football/college-football' else (3 if path == 'football/nfl' else 4)
+                    priority_order = (0 if is_aggies else 1 if is_sec else 2 if (away_priority_rank or home_priority_rank or away_rank or home_rank) else 4) if path == 'football/college-football' else (3 if path == 'football/nfl' else 4)
                     game_key = f"{path}:{event.get('id', event.get('date', ''))}:{a_abbr}@{h_abbr}"
                     t_back, t_ahead = _get_window(path)
                     team_min = today_local - timedelta(days=t_back)
@@ -2587,7 +2710,7 @@ def _build_data_response(active_leagues, active_teams, active_lc, tz_str, settin
 
     colors, header_color = resolve_palette(settings)
 
-    return {
+    response = {
         "display_name": settings.get('display_name', 'SCOREBOARD'),
         "header_color": header_color,
         "weather": get_weather(settings.get('city', '')),
@@ -2619,10 +2742,14 @@ def _build_data_response(active_leagues, active_teams, active_lc, tz_str, settin
         "cache_league_updated_at": dict(_espn_cache.get('league_updated_at', {})),
         "cache_stale": bool(_cache_errors),
         "cache_errors": dict(_cache_errors),
+        "ap_rankings_updated_at": _espn_cache.get('ap_poll', {}).get('updated_at'),
+        "ap_rankings_date": _espn_cache.get('ap_poll', {}).get('date'),
+        "ap_rankings_stale": bool(_ap_poll_request['failures']),
         "browser_refresh_seconds": min(30, _refresh_preferences(settings)['live_seconds']),
         "settings_updated_at": settings.get('last_saved', ''),
         "app_version": _read_version(),
     }
+    return _apply_football_display(response, settings, tz_str, now)
 
 
 # ─── ROUTES: WEB UI ───
@@ -2918,6 +3045,7 @@ def conferences_api(league_path):
 
 
 def _kiosk_display_data(data, settings, tz_str):
+    data = dict(data)
     # Override server's display settings with this kiosk's own preferences
     kiosk_colors, kiosk_header = resolve_palette(settings)
     data['display_name']     = settings.get('display_name', data.get('display_name', 'SCOREBOARD'))
@@ -2947,7 +3075,7 @@ def _kiosk_display_data(data, settings, tz_str):
         data['weather'] = get_weather(settings['city'])
     data['local_schedule_items'] = _build_local_schedule_items(settings, tz_str)
     data['settings_updated_at'] = settings.get('last_saved', '')
-    return data
+    return _apply_football_display(data, settings, tz_str)
 
 
 @app.route('/api/data', methods=['GET', 'POST'])
@@ -2967,6 +3095,9 @@ def data_api():
                     "teams": settings.get('teams', []),
                     "league_conferences": settings.get('league_conferences', {}),
                     "timezone": tz_str,
+                    # Keep both leagues in the retained slate so an offline
+                    # kiosk can still switch at local midnight or after a save.
+                    "football_display": "both",
                 }
                 for key in ('date_windows', 'football_priority', 'nascar_favorites',
                             'indycar_favorites', 'f1_favorites', 'golf_favorites'):
@@ -2977,9 +3108,8 @@ def data_api():
                     if not isinstance(data, dict):
                         raise ValueError('Invalid server data')
                     _kiosk_server_unreachable = False
-                    data = _kiosk_display_data(data, settings, tz_str)
                     _kiosk_last_data = data
-                    return jsonify(data)
+                    return jsonify(_kiosk_display_data(data, settings, tz_str))
             except Exception:
                 pass
         if server_url and _kiosk_last_data is not None:
@@ -3002,7 +3132,7 @@ def data_api():
             return jsonify({'error': str(error)}), 400
     # Display-specific sports filters never mutate global/persistent settings.
     settings = dict(settings)
-    for key in ('date_windows', 'football_priority', 'nascar_favorites',
+    for key in ('date_windows', 'football_priority', 'football_display', 'nascar_favorites',
                 'indycar_favorites', 'f1_favorites', 'golf_favorites'):
         if key in req_data:
             settings[key] = req_data[key]

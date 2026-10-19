@@ -33,6 +33,7 @@ jobs:
         run: |
           node tests/clock.test.js
           node tests/display.test.js
+          node tests/rank_badges.test.js
           node --check tests/browser_qc.cjs
           bash -n install.sh
           bash -n start_kiosk.sh

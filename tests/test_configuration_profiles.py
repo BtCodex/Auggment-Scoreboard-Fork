@@ -22,6 +22,7 @@ class ConfigurationTests(unittest.TestCase):
 
     def test_safe_timings_preserve_content_and_pairing(self):
         original = {'clock_format': 'hidden', 'display_mode': 'ticker', 'slide_duration': 35,
+                    'football_display': 'weekly',
                     'colors': {'dark_bg': '#003300'}, 'show_logo_slide': False,
                     'timezone': 'Pacific/Honolulu', 'teams': ['football/nfl:HOU'],
                     'leagues': ['football/nfl'], 'specials': [{'title': 'My slide'}],
@@ -34,7 +35,7 @@ class ConfigurationTests(unittest.TestCase):
         self.assertEqual(settings['clock_format'], '12h')
         self.assertEqual(settings['display_mode'], 'hybrid')
         self.assertEqual(settings['slide_duration'], 8)
-        for key in ('colors', 'show_logo_slide', 'timezone', 'teams', 'leagues', 'specials', 'slide_playlist'):
+        for key in ('colors', 'show_logo_slide', 'timezone', 'teams', 'leagues', 'specials', 'slide_playlist', 'football_display'):
             if key == 'colors':
                 self.assertEqual(settings[key]['dark_bg'], original[key]['dark_bg'])
             else:
