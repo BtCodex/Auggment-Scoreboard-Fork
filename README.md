@@ -39,11 +39,14 @@ It pulls real-time scores from ESPN for the major pro and college leagues, plus 
 
 **1. Prepare the OS**
 
-For the latest development candidate, see [the live-tracker update report](docs/LIVE_WIDGETS_UPDATE.md),
+For the latest development candidate, see [the complete-week/filter update report](docs/CFB_WEEK_UPDATE.md),
 [2026 team coverage](docs/TEAM_COVERAGE_2026.md), and
 [Android viewer/APK instructions](docs/ANDROID_VIEWER.md).
 
-Start with a fresh install of Raspberry Pi OS or Ubuntu/Debian.
+Existing installation: use [the runtime ZIP and compatibility notes](docs/UPDATE_PACKAGE.md)
+and [the backup/manual update instructions](docs/ZIP_UPDATE.md); no OS reinstall
+or existing `.git` directory is required. Clean backup option: follow
+[fresh 32-bit Pi OS installation with git clone/pull](docs/FRESH_PI_INSTALL.md).
 
 **2. Download Files**
 

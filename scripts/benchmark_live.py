@@ -83,7 +83,7 @@ def benchmark():
             raw_events = {path: [fixture(path, league_index * 24 + index, start)
                                 for index in range(24)] for league_index, path in enumerate(LEAGUES)}
             settings = scoreboard.get_settings()
-            settings.update(city='', color_mode='manual', football_priority=False,
+            settings.update(city='', color_mode='manual', football_priority=False, cfb_coverage='favorites', scorecard_include_completed=True,
                             football_display='both', leagues=list(LEAGUES),
                             teams=[path + ':' + competitor['team']['abbreviation']
                                    for path, events in raw_events.items() for event in events

@@ -1,12 +1,12 @@
 # Auggmented Scoreboard improvement and quality-control report
 
-Latest branch: `improve/live-game-trackers-and-bars`, building on the prior scorecard/Android candidate.
+Latest branch: `improve/complete-weekly-cfb-rotation`, building on the prior live-tracker/scorecard/Android candidates.
 
 The latest implementation and exact validation results are in
-[the live tracker update report](docs/LIVE_WIDGETS_UPDATE.md): 275 Python
-tests, 53 JavaScript tests, 28 Android Java policy checks, all three Chromium suites,
-and the existing signed server-connected APK. Read its manual-upgrade requirement
-before installation; the older updater cannot copy the newly added module/catalog.
+[the weekly CFB/filter/package update report](docs/CFB_WEEK_UPDATE.md): 325 Python
+tests, 66 JavaScript tests, all four Chromium suites, and the actual runtime-only
+ZIP tested with the original/current extraction mechanisms. Read the package
+compatibility and safe manual alternative; unknown filtered updaters may omit modules.
 
 **Ready for controlled physical testing; not verified for unattended 24/7 use.**
 All work was done in the development repository. No access, deployment, uninstall,

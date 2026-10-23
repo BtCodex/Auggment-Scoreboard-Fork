@@ -60,7 +60,7 @@ with tempfile.TemporaryDirectory(prefix='scoreboard-browser-qc-') as directory:
     app._team_colors_for_league = lambda path: {}
     app.save_settings({'port': 5002, 'leagues': [CFB, NFL], 'teams': [CFB + ':TA&M', NFL + ':HOU'],
                        'display_name': 'AGGIE GAMEDAY', 'color_mode': 'manual', 'slide_duration': 2, 'logo_slide_duration': 2,
-                       'city': '', 'football_priority': True,
+                       'city': '', 'football_priority': True, 'cfb_coverage': 'favorites', 'scorecard_include_completed': True,
                        'specials': [{'uid': 'test1', 'type': 'text', 'title': 'First', 'enabled': True},
                                     {'uid': 'test2', 'type': 'text', 'title': 'Second', 'enabled': True}]})
     app.app.view_functions['wifi_status_api'] = lambda: app.jsonify({'connected': False})

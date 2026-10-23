@@ -1465,3 +1465,12 @@ body.pg-settings .section-title { scroll-margin-top:110px; }
 body.pg-settings input[type=number] { width:100%; padding:12px; color:#eee; background:#080808; border:1px solid #444; border-radius:6px; font:inherit; }
 body.pg-settings p { line-height:1.5; }
 #safe-defaults-btn { margin-top:16px; }
+
+/* Keep device, football and pairing controls readable on landscape phones.
+   Sections wrap into rows rather than squeezing their contents offscreen. */
+body.pg-settings .section-pair label { min-width:0; overflow-wrap:anywhere; }
+body.pg-settings .section-pair .btn { max-width:100%; white-space:normal; overflow-wrap:anywhere; }
+@media (min-width:681px) {
+ body.pg-settings .section-pair { flex-wrap:wrap; }
+ body.pg-settings .section-pair > .section:not(.section-compact) { flex:1 1 320px; min-width:320px; }
+}

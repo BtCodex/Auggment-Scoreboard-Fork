@@ -10,7 +10,11 @@ Keep the working card untouched. Power down before removing it; keep a complete
 image backup somewhere other than the card. Use a spare card for testing. If unsure
 which disk an imaging tool will overwrite, stop and check before proceeding.
 
-The branch for this update is `improve/live-game-trackers-and-bars` in
+For an existing ZIP installation, follow [the ZIP update procedure](ZIP_UPDATE.md).
+It updates application files in place without git, an OS reinstall, or changing
+existing service/desktop configuration. A spare card remains optional protection.
+
+The branch for this update is `improve/complete-weekly-cfb-rotation` in
 `BtCodex/Auggment-Scoreboard-Fork`. Download/clone that branch into a separate
 candidate directory on the test system. Do not copy candidate settings or uploads
 over the working application's files.
@@ -28,7 +32,7 @@ matrix is configured for 3.9, 3.11 and 3.12 but is not a physical ARM test.
 On a fresh Pi OS test card with a regular user account:
 
 ```bash
-git clone --branch improve/live-game-trackers-and-bars https://github.com/BtCodex/Auggment-Scoreboard-Fork.git scoreboard-candidate
+git clone --branch improve/complete-weekly-cfb-rotation https://github.com/BtCodex/Auggment-Scoreboard-Fork.git scoreboard-candidate
 cd scoreboard-candidate
 sudo bash install.sh
 ```
@@ -48,11 +52,14 @@ be checked on the device.
 
 ## Upgrade an existing installation on the cloned card
 
-**Use the manual copy procedure below for this update.** The previously installed
-updater does not accept the newly added `score_details.py` module or football
-catalog. Its one-click ZIP update could replace app.py while omitting that module,
-preventing startup. Do not use that older updater for this transition. Once the
-complete candidate is installed, its updated package handling includes both files.
+For an existing installation, start with [the runtime update ZIP](UPDATE_PACKAGE.md)
+and [the manual ZIP procedure](ZIP_UPDATE.md). The package is tested against the
+original upstream 1.3 extractor and this candidate's updater. Some intermediate
+fork updaters use narrower file allowlists that omit new modules/catalog files.
+Do not use that older updater if its required-file support is unknown; manual
+copy installs all files safely. Current package validation rejects a missing
+required root module before writing code. Never extract a complete source ZIP
+over device data or rerun the OS installer merely to update code.
 
 If you already have a working X11 installation, use a selective upgrade. These
 instructions assume Combined mode; omit kiosk commands for a server-only device.
@@ -124,7 +131,7 @@ sudo sha256sum "$APP_DIR/static/uploads/logo.png" > "$backup_dir/logo.sha256"
 Copy these paths from CANDIDATE to the same paths under APP_DIR, preserving service
 user readability. The copy block creates any missing directories:
 
-- app.py, score_details.py and version.txt
+- app.py, score_details.py, cfb_week.py and version.txt
 - templates/index.html, templates/settings.html, templates/login.html
 - static/css/main.css, static/css/display-modes.css, static/css/live-widgets.css
 - static/js/clock.js, static/js/display.js, static/js/live-widgets.js
@@ -142,6 +149,7 @@ while IFS= read -r relative_path; do
 done <<'FILES'
 app.py
 score_details.py
+cfb_week.py
 version.txt
 templates/index.html
 templates/settings.html

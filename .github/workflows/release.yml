@@ -28,7 +28,7 @@ jobs:
         run: |
           VER="${{ steps.version.outputs.ver }}"
           mkdir -p dist/Auggment-Scoreboard-$VER
-          cp -r app.py score_details.py install.sh start_kiosk.sh setup_kiosk_service.sh \
+          cp -r app.py score_details.py cfb_week.py install.sh start_kiosk.sh setup_kiosk_service.sh \
                 requirements.txt requirements-tested.txt version.txt LICENSE README.md QC_REPORT.md \
                 templates static scripts docs Images dist/Auggment-Scoreboard-$VER/
           (cd dist && zip -r "Auggment-Scoreboard-$VER.zip" "Auggment-Scoreboard-$VER")

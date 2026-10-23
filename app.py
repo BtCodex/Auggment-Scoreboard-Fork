@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from functools import wraps
 from dateutil import parser as dateutil_parser
 from score_details import ScoreDetailsCache
+import cfb_week
 
 
 app = Flask(__name__)
@@ -349,9 +350,10 @@ def _events_refresh_interval(events, preferences=None):
 
 class _LeagueEvents(list):
     """A partial slate carries failures so successful live days can still update."""
-    def __init__(self, events=(), errors=()):
+    def __init__(self, events=(), errors=(), cfb_week=None):
         super().__init__(events)
         self.errors = list(errors)
+        self.cfb_week = cfb_week
 
 
 def _bounded_slate(events, days_back, days_ahead, tz_str):
@@ -666,6 +668,10 @@ def get_settings():
         "leagues": ["football/college-football", "football/nfl", "basketball/nba", "baseball/mlb", "golf/pga"],
         "football_priority": True,
         "football_display": "both",
+        "cfb_coverage": "all_power5",
+        "cfb_refresh_seconds": 180,
+        "scorecard_filter": "both",
+        "scorecard_include_completed": False,
         "show_logo_slide": True,
         "teams": ["football/college-football:TA&M", "football/nfl:HOU", "baseball/mlb:HOU", "basketball/nba:HOU"],
         "league_conferences": {},
@@ -756,18 +762,20 @@ def _validate_settings(data):
     for key in ('city', 'display_name', 'header_color', 'font_primary', 'palette_team', 'server_url', 'kiosk_name', 'auth_token'):
         if key in data and not isinstance(data[key], str):
             raise ValueError(key + ' must be text')
-    for key in ('clock_format', 'device_mode', 'theme', 'cast_orientation', 'display_mode', 'color_mode', 'slide_transition', 'football_display', 'header_visibility'):
+    for key in ('clock_format', 'device_mode', 'theme', 'cast_orientation', 'display_mode', 'color_mode', 'slide_transition', 'football_display', 'header_visibility', 'cfb_coverage', 'scorecard_filter'):
         choices = {'clock_format': ('12h', '24h', 'hidden'),
                    'device_mode': ('server', 'kiosk'), 'theme': ('dark', 'light'),
                    'cast_orientation': ('auto', 'horizontal', 'vertical', 'phone'),
                    'display_mode': ('scoreboard', 'ticker', 'hybrid'),
                    'football_display': ('both', 'cfb', 'nfl', 'weekly'),
+                   'cfb_coverage': ('all_power5', 'favorites'),
+                   'scorecard_filter': ('live', 'upcoming', 'both'),
                    'header_visibility': ('always', 'hidden', 'auto'),
                    'color_mode': ('auto', 'manual'),
                    'slide_transition': ('slide-right', 'slide-left', 'slide-top', 'slide-bottom', 'fade')}
         if key in data and data[key] not in choices[key]:
             raise ValueError('Invalid ' + key)
-    for key in ('show_logo_slide', 'football_priority', 'server_enable_display', 'show_time_bar', 'show_title_bar'):
+    for key in ('show_logo_slide', 'football_priority', 'server_enable_display', 'show_time_bar', 'show_title_bar', 'scorecard_include_completed'):
         if key in data and not isinstance(data[key], bool):
             raise ValueError(key + ' must be true or false')
     for key in ('leagues', 'teams', 'nascar_favorites', 'indycar_favorites', 'f1_favorites', 'golf_favorites'):
@@ -785,9 +793,10 @@ def _validate_settings(data):
         if key in data and not isinstance(data[key], dict):
             raise ValueError(key + ' must be an object')
     for key, low, high in (('port', 1, 65535), ('slide_duration', 1, 3600), ('ticker_speed', 1, 1000),
-                           ('logo_slide_duration', 1, 3600), ('transition_duration_ms', 0, 2000)):
+                           ('logo_slide_duration', 1, 3600), ('transition_duration_ms', 0, 2000),
+                           ('cfb_refresh_seconds', 30, 900)):
         if key in data and (type(data[key]) not in (int, float) or not low <= data[key] <= high or
-                            (key == 'port' and type(data[key]) is not int)):
+                            (key in ('port', 'cfb_refresh_seconds') and type(data[key]) is not int)):
             raise ValueError('Invalid ' + key)
     for key, low, high in (('live_seconds', 30, 300), ('upcoming_seconds', 60, 3600),
                           ('idle_seconds', 300, 21600), ('final_seconds', 300, 86400)):
@@ -1107,7 +1116,54 @@ def _fetch_discovered_events(sport, series_ids):
     return events
 
 
+def _cfb_refresh_interval(settings=None):
+    settings = settings if settings is not None else get_settings()
+    interval = settings.get('cfb_refresh_seconds', 180)
+    demand = _requested_leagues.get(cfb_week.CFB, {})
+    if isinstance(demand, dict):
+        recent = [value for value, seen in demand.get('refreshes', {}).items()
+                  if type(value) is int and 30 <= value <= 900 and time_module.monotonic() - seen <= 900]
+        interval = min([interval] + recent)
+    return interval
+
+
+def _complete_cfb_requested(settings=None):
+    settings = settings if settings is not None else get_settings()
+    if settings.get('cfb_coverage', 'all_power5') == 'all_power5':
+        return True
+    demand = _requested_leagues.get(cfb_week.CFB, {})
+    return (isinstance(demand, dict) and demand.get('complete_week') is True
+            and time_module.monotonic() - demand.get('complete_week_seen_at', float('-inf')) <= 900)
+
+
+def _fetch_cfb_week():
+    """A complete official FBS week, independent of favorites/date/conference windows."""
+    base = 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard'
+    interval = _cfb_refresh_interval()
+    url = base + '?groups=80&limit=1000'
+    _request_score_events(url, refresh_seconds=interval)
+    source = _score_requests.get(url, {}).get('metadata', {})
+    week = cfb_week.select_week(source, datetime.now(timezone.utc))
+    if week['state'] == 'offseason':
+        return _LeagueEvents([], cfb_week=week)
+    # The default endpoint is only a calendar bootstrap, never proof that a
+    # featured/default slate covers the week. Always request the explicit week.
+    url = (base + '?groups=80&limit=1000&dates=' + str(week['season']) +
+           '&seasontype=' + str(week['season_type']) + '&week=' + str(week['week']))
+    events = _request_score_events(url, refresh_seconds=interval)
+    source = _score_requests.get(url, {}).get('metadata', {})
+    if not cfb_week.matches_week(source, week):
+        raise ValueError('ESPN did not confirm the requested football week')
+    matching = [event for event in events if cfb_week.matches_week(event, week)]
+    if events and not matching:
+        raise ValueError('ESPN returned no games matching the selected football week')
+    deduplicated = {_event_key(event): event for event in matching}
+    return _LeagueEvents(sorted(deduplicated.values(), key=cfb_week.sort_key), cfb_week=week)
+
+
 def _fetch_league_raw(path, league_conferences, days_back=0, days_ahead=14):
+    if path == cfb_week.CFB and _complete_cfb_requested():
+        return _fetch_cfb_week()
     if path == "cricket/current":
         return _fetch_discovered_events("cricket", _discover_espn_series("cricket"))
     sport, league = ESPN_API_PATHS.get(path, (path.split('/')[0], path.split('/')[-1]))
@@ -1224,6 +1280,27 @@ def _apply_football_display(data, settings, tz_str, now=None):
     return result
 
 
+def _apply_scorecard_filter(data, settings):
+    """The main scorecard choice never removes games from the bottom ticker."""
+    result = dict(data)
+    mode = settings.get('scorecard_filter', 'both')
+    completed = settings.get('scorecard_include_completed', False)
+    live = {'live', 'halftime', 'overtime'} if mode in ('live', 'both') else set()
+    states = live | ({'scheduled'} if mode in ('upcoming', 'both') else set())
+    if completed:
+        states.add('final')
+    result['teams'] = [card for card in data.get('teams', []) if card.get('game_state') in states]
+    result['scorecard_filter'] = mode
+    result['scorecard_include_completed'] = completed
+    if isinstance(data.get('cfb_week'), dict):
+        result['cfb_week'] = {**data['cfb_week'], 'displayed_game_count': sum(
+            card.get('league_path') == cfb_week.CFB for card in result['teams'])}
+    description = {'live': 'live', 'upcoming': 'upcoming', 'both': 'live or upcoming'}.get(mode, 'live or upcoming')
+    result['scorecard_empty_message'] = ('' if result['teams'] else
+        'No ' + description + (' or completed' if completed else '') + ' games match your scorecard settings.')
+    return result
+
+
 def _parse_ap_poll(payload):
     """Read the explicitly identified AP poll, never Coaches/CFP/curated ranks."""
     if not isinstance(payload, dict) or not isinstance(payload.get('rankings'), list):
@@ -1335,7 +1412,7 @@ def _trim_live_details(data, elapsed=0, stale=False):
     return data
 
 
-def _request_score_events(url, session=None, ttl=30):
+def _request_score_events(url, session=None, ttl=30, refresh_seconds=None):
     """Share provider requests, retain successes and exponentially back off errors.
 
     No endpoint is polled faster than once every 30 seconds. The source's own
@@ -1349,7 +1426,7 @@ def _request_score_events(url, session=None, ttl=30):
                 raise requests.RequestException(entry['error'])
             # Recompute expiry using current preferences so settings take effect
             # without restarting or creating duplicate per-display requests.
-            interval = _events_refresh_interval(entry.get('events', []))
+            interval = refresh_seconds if refresh_seconds is not None else _events_refresh_interval(entry.get('events', []))
             if not entry.get('error') and now < entry.get('fetched_at', 0) + interval:
                 return entry['events']
         try:
@@ -1371,7 +1448,10 @@ def _request_score_events(url, session=None, ttl=30):
             while len(_score_event_received_at) > 4096:
                 del _score_event_received_at[next(iter(_score_event_received_at))]
             _score_requests[url] = {'events': events, 'fetched_at': fetched_at,
-                                    'retry_at': fetched_at + _events_refresh_interval(events), 'failures': 0}
+                                    'retry_at': fetched_at + (refresh_seconds if refresh_seconds is not None
+                                                             else _events_refresh_interval(events)), 'failures': 0}
+            if '/football/college-football/scoreboard' in url:
+                _score_requests[url]['metadata'] = cfb_week.metadata(payload)
             return events
         except (requests.RequestException, ValueError) as error:
             failures = min((entry or {}).get('failures', 0) + 1, 10)
@@ -1422,6 +1502,9 @@ def _refresh_espn_cache():
                 elif isinstance(demand, dict):
                     demand['windows'] = {window: seen for window, seen in demand.get('windows', {}).items()
                                          if now - seen <= 900}
+                    demand['refreshes'] = {value: seen for value, seen in demand.get('refreshes', {}).items()
+                                           if now - seen <= 900}
+                    demand['complete_week'] = now - demand.get('complete_week_seen_at', float('-inf')) <= 900
             leagues = list(dict.fromkeys(list(leagues) + list(_requested_leagues)))
             requested_windows = {path: list(demand.get('windows', {})) for path, demand in _requested_leagues.items()
                                  if isinstance(demand, dict)}
@@ -1439,7 +1522,17 @@ def _refresh_espn_cache():
                     days_back=back, days_ahead=ahead)
                 with _cache_lock:
                     failures = getattr(events, 'errors', [])
-                    if failures:
+                    official_week = getattr(events, 'cfb_week', None)
+                    if path == cfb_week.CFB and official_week is not None:
+                        # A calendar week can extend beyond the rolling date window,
+                        # especially bowls. Never prune its completed early games.
+                        _espn_cache['raw_events'][path] = list(events)
+                        _espn_cache['cfb_week'] = official_week
+                        timestamp = datetime.now(timezone.utc).isoformat()
+                        _espn_cache['updated_at'] = timestamp
+                        _espn_cache.setdefault('league_updated_at', {})[path] = timestamp
+                        _cache_errors.pop(path, None)
+                    elif failures:
                         # Preserve events from unavailable days, overriding them
                         # only with a successfully retrieved matching event ID.
                         merged = {_event_key(event): event for event in _espn_cache['raw_events'].get(path, [])}
@@ -1470,7 +1563,7 @@ def _refresh_espn_cache():
         _refresh_lock.release()
 
 
-def _get_league_events(path, league_conferences, window=None):
+def _get_league_events(path, league_conferences, window=None, complete_week=False, refresh_seconds=None):
     # Rendering never blocks on sports network calls. The background refresh owns
     # fetching and retries; all server/kiosk clients share its retained slate.
     with _cache_lock:
@@ -1481,9 +1574,18 @@ def _get_league_events(path, league_conferences, window=None):
             windows = {key: seen for key, seen in windows.items() if now - seen <= 900}
             if window is not None:
                 windows[tuple(window)] = now
-            _requested_leagues[path] = {'seen_at': now, 'windows': windows}
+            refreshes = old.get('refreshes', {}) if isinstance(old, dict) else {}
+            refreshes = {value: seen for value, seen in refreshes.items() if now - seen <= 900}
+            if complete_week and refresh_seconds is not None:
+                refreshes[refresh_seconds] = now
+            complete_seen = now if complete_week else (old.get('complete_week_seen_at', float('-inf'))
+                                                       if isinstance(old, dict) else float('-inf'))
+            _requested_leagues[path] = {'seen_at': now, 'windows': windows,
+                                       'refreshes': refreshes,
+                                       'complete_week_seen_at': complete_seen,
+                                       'complete_week': now - complete_seen <= 900}
         events = _espn_cache['raw_events'].get(path, [])
-    if path == 'football/college-football':
+    if path == 'football/college-football' and not complete_week:
         selected = league_conferences.get(path, [])
         selected = selected if isinstance(selected, list) else selected.split(',')
         names = {entry['name'] for entry in HARDCODED_CONFERENCES[path] if entry['id'] in selected}
@@ -1522,6 +1624,9 @@ def _load_score_snapshot():
             _espn_cache.update(raw_events=events, updated_at=updated_at,
                                league_updated_at={path: value for path, value in timestamps.items()
                                                   if path in events and isinstance(value, str)})
+            saved_week = cfb_week.validate_saved_week(snapshot.get('cfb_week'))
+            if saved_week:
+                _espn_cache['cfb_week'] = saved_week
             poll = snapshot.get('ap_poll')
             if isinstance(poll, dict):
                 try:
@@ -1558,7 +1663,7 @@ def _save_score_snapshot(force=False):
         game_details = _score_details.snapshot()
         payload = json.dumps({**_espn_cache, 'game_details': game_details}, separators=(',', ':'))
         fingerprint = (SCORE_CACHE_FILE, hashlib.sha256(json.dumps(
-            [_espn_cache['raw_events'], _espn_cache.get('ap_poll'), game_details],
+            [_espn_cache['raw_events'], _espn_cache.get('cfb_week'), _espn_cache.get('ap_poll'), game_details],
             sort_keys=True, separators=(',', ':')).encode()).digest())
     if not force and fingerprint == _last_snapshot_fingerprint:
         _last_snapshot_write = now
@@ -2481,6 +2586,18 @@ def _build_data_response(active_leagues, active_teams, active_lc, tz_str, settin
         today_local = now.date()
 
     dw = settings.get('date_windows', {})
+    complete_cfb = settings.get('cfb_coverage', 'all_power5') == 'all_power5'
+    official_week = cfb_week.validate_saved_week(_espn_cache.get('cfb_week'))
+    cfb_warning = ''
+    if complete_cfb and official_week:
+        if cfb_week.CFB in _cache_errors:
+            cfb_warning = 'Showing saved ' + official_week['label'] + '; ESPN week refresh is unavailable'
+        elif official_week.get('end'):
+            try:
+                if now > dateutil_parser.isoparse(official_week['end']):
+                    cfb_warning = 'Showing saved ' + official_week['label'] + '; awaiting the next official ESPN week'
+            except (ValueError, TypeError):
+                pass
 
     def _get_window(path):
         entry = dw.get(path, {})
@@ -2492,7 +2609,17 @@ def _build_data_response(active_leagues, active_teams, active_lc, tz_str, settin
 
     for path in _priority_leagues(active_leagues, settings):
         try:
-            events = _get_league_events(path, active_lc, _get_window(path))
+            weekly = path == cfb_week.CFB and complete_cfb
+            if weekly:
+                events = _get_league_events(path, {}, _get_window(path), complete_week=True,
+                                           refresh_seconds=settings.get('cfb_refresh_seconds', 180))
+                if official_week is None:
+                    cfb_warning = 'Waiting for a verified ESPN football week; favorites and rankings do not define the complete schedule'
+                events = [event for event in events if cfb_week.matches_week(event, official_week)
+                          and cfb_week.eligible(event, _football_catalog())]
+                events.sort(key=cfb_week.sort_key)
+            else:
+                events = _get_league_events(path, active_lc, _get_window(path))
             sport, league = ESPN_API_PATHS.get(path, (path.split('/')[0], path.split('/')[-1]))
 
             # ── Motorsports (NASCAR / IndyCar / F1) — leaderboard + ticker on race day ──
@@ -2770,12 +2897,13 @@ def _build_data_response(active_leagues, active_teams, active_lc, tz_str, settin
                         (path == 'football/college-football' and (is_aggies or is_sec or away_priority_rank or home_priority_rank or away_rank or home_rank)))
                     is_fav = away_is_fav or home_is_fav
                     priority_order = (0 if is_aggies else 1 if is_sec else 2 if (away_priority_rank or home_priority_rank or away_rank or home_rank) else 4) if path == 'football/college-football' else (3 if path == 'football/nfl' else 4)
-                    game_key = f"{path}:{event.get('id', event.get('date', ''))}:{a_abbr}@{h_abbr}"
+                    game_key = f"{path}:{_event_key(event)}"
                     t_back, t_ahead = _get_window(path)
                     team_min = today_local - timedelta(days=t_back)
                     team_max = today_local + timedelta(days=t_ahead)
                     in_window = team_min <= event_local_date <= team_max if event_local_date is not None else state == 'in'
-                    if (is_fav or priority_game) and in_window and game_key not in fav_card_keys:
+                    if ((weekly or is_fav or priority_game) and (weekly or in_window)
+                            and game_key not in fav_card_keys):
                         fav_card_keys.add(game_key)
                         details = _score_details.get(path, event, home, away)
                         live_ttl = (_live_detail_ttl(path, event)
@@ -2786,6 +2914,7 @@ def _build_data_response(active_leagues, active_teams, active_lc, tz_str, settin
                         fav_cards.append({
                             "league_path": path,
                             "event_id": event.get("id", ""),
+                            "kickoff_iso": event.get('date', ''),
                             "away_rank": away_rank, "home_rank": home_rank,
                             "priority_order": priority_order,
                             "league_label": LEAGUE_LABELS.get(path, league.upper()),
@@ -2812,6 +2941,14 @@ def _build_data_response(active_leagues, active_teams, active_lc, tz_str, settin
 
     if settings.get('football_priority', True):
         fav_cards.sort(key=lambda card: card.get('priority_order', 4))
+    if complete_cfb:
+        college_cards = sorted((card for card in fav_cards if card['league_path'] == cfb_week.CFB),
+                               key=cfb_week.sort_key)
+        # Keep one ordered CFB block; other sports retain their relative order.
+        if college_cards:
+            first = next(index for index, card in enumerate(fav_cards) if card['league_path'] == cfb_week.CFB)
+            others = [card for card in fav_cards if card['league_path'] != cfb_week.CFB]
+            fav_cards = others[:first] + college_cards + others[first:]
 
     specials = [
         s for s in settings.get('specials', [])
@@ -2843,6 +2980,10 @@ def _build_data_response(active_leagues, active_teams, active_lc, tz_str, settin
         "logo_available": bool(_logo_version()),
         "logo_version": _logo_version(),
         "clock_format": settings.get('clock_format', '12h'),
+        "cfb_coverage": settings.get('cfb_coverage', 'all_power5'),
+        "cfb_refresh_seconds": settings.get('cfb_refresh_seconds', 180),
+        "cfb_week": {**(official_week or {}), 'warning': cfb_warning,
+                     'eligible_game_count': sum(card['league_path'] == cfb_week.CFB for card in fav_cards)},
         "header_visibility": settings.get('header_visibility', 'auto'),
         "show_time_bar": settings.get('show_time_bar', True),
         "show_title_bar": settings.get('show_title_bar', True),
@@ -2853,8 +2994,8 @@ def _build_data_response(active_leagues, active_teams, active_lc, tz_str, settin
         "ticker_speed": settings.get('ticker_speed', 120),
         "cache_updated_at": _espn_cache.get("updated_at"),
         "cache_league_updated_at": dict(_espn_cache.get('league_updated_at', {})),
-        "cache_stale": bool(_cache_errors),
-        "cache_errors": dict(_cache_errors),
+        "cache_stale": bool(_cache_errors) or bool(cfb_warning),
+        "cache_errors": {**_cache_errors, **({cfb_week.CFB: cfb_warning} if cfb_warning else {})},
         "ap_rankings_updated_at": _espn_cache.get('ap_poll', {}).get('updated_at'),
         "ap_rankings_date": _espn_cache.get('ap_poll', {}).get('date'),
         "ap_rankings_stale": bool(_ap_poll_request['failures']),
@@ -2862,7 +3003,7 @@ def _build_data_response(active_leagues, active_teams, active_lc, tz_str, settin
         "settings_updated_at": settings.get('last_saved', ''),
         "app_version": _read_version(),
     }
-    return _apply_football_display(response, settings, tz_str, now)
+    return _apply_scorecard_filter(_apply_football_display(response, settings, tz_str, now), settings)
 
 
 # ─── ROUTES: WEB UI ───
@@ -3241,6 +3382,7 @@ def conferences_api(league_path):
 
 def _kiosk_display_data(data, settings, tz_str):
     data = dict(data)
+    source_coverage = data.get('cfb_coverage')
     # Override server's display settings with this kiosk's own preferences
     kiosk_colors, kiosk_header = resolve_palette(settings)
     data['display_name']     = settings.get('display_name', data.get('display_name', 'SCOREBOARD'))
@@ -3261,6 +3403,21 @@ def _kiosk_display_data(data, settings, tz_str):
         data[key] = settings.get(key, fallback)
     data['clock_format']     = settings.get('clock_format', '12h')
     data['header_visibility'] = settings.get('header_visibility', 'auto')
+    data['cfb_coverage'] = settings.get('cfb_coverage', 'all_power5')
+    desired_coverage = data['cfb_coverage']
+    source_errors = data.get('cache_errors')
+    if (isinstance(source_errors, dict) and source_errors.get('kiosk') and source_coverage in ('all_power5', 'favorites')
+            and source_coverage != desired_coverage):
+        # Retained cards are not a new discovery result. Keep their actual mode
+        # until the server can apply the saved preference and supply that slate.
+        data['cfb_coverage'] = source_coverage
+        data['cfb_coverage_pending'] = desired_coverage
+        labels = {'all_power5': 'All Power 5 Games', 'favorites': 'favorites / priority games'}
+        source_week = data.get('cfb_week')
+        data['cfb_week'] = {**(source_week if isinstance(source_week, dict) else {}), 'warning':
+            'College football coverage change saved; awaiting server reconnection. '
+            'Showing cached ' + labels[source_coverage] + '.'}
+    data['cfb_refresh_seconds'] = settings.get('cfb_refresh_seconds', 180)
     data['show_time_bar'] = settings.get('show_time_bar', True)
     data['show_title_bar'] = settings.get('show_title_bar', True)
     data['timezone']         = tz_str
@@ -3273,7 +3430,7 @@ def _kiosk_display_data(data, settings, tz_str):
         data['weather'] = get_weather(settings['city'])
     data['local_schedule_items'] = _build_local_schedule_items(settings, tz_str)
     data['settings_updated_at'] = settings.get('last_saved', '')
-    return _apply_football_display(data, settings, tz_str)
+    return _apply_scorecard_filter(_apply_football_display(data, settings, tz_str), settings)
 
 
 @app.route('/api/data', methods=['GET', 'POST'])
@@ -3297,8 +3454,10 @@ def data_api():
                     # Keep both leagues in the retained slate so an offline
                     # kiosk can still switch at local midnight or after a save.
                     "football_display": "both",
+                    "scorecard_filter": "both",
+                    "scorecard_include_completed": True,
                 }
-                for key in ('date_windows', 'football_priority', 'nascar_favorites',
+                for key in ('date_windows', 'football_priority', 'cfb_coverage', 'cfb_refresh_seconds', 'nascar_favorites',
                             'indycar_favorites', 'f1_favorites', 'golf_favorites'):
                     payload[key] = settings.get(key)
                 started = time_module.monotonic()
@@ -3334,7 +3493,7 @@ def data_api():
         req_data = _migrate_conference_filters(req_data)
     # Display-specific sports filters never mutate global/persistent settings.
     settings = dict(settings)
-    for key in ('date_windows', 'football_priority', 'football_display', 'nascar_favorites',
+    for key in ('date_windows', 'football_priority', 'football_display', 'cfb_coverage', 'cfb_refresh_seconds', 'scorecard_filter', 'scorecard_include_completed', 'nascar_favorites',
                 'indycar_favorites', 'f1_favorites', 'golf_favorites'):
         if key in req_data:
             settings[key] = req_data[key]
@@ -4320,7 +4479,7 @@ def _apply_update_package(download_url, kiosk_token=None, kiosk_id=None):
                     rel = raw[len(prefix):] if prefix and raw.startswith(prefix) else raw
                     if member.is_dir() or not rel:
                         continue
-                    allowed = (rel in ('app.py', 'score_details.py', 'requirements.txt', 'version.txt', 'LICENSE',
+                    allowed = (rel in ('app.py', 'score_details.py', 'cfb_week.py', 'requirements.txt', 'version.txt', 'LICENSE',
                                        'README.md', 'QC_REPORT.md', 'INSTALL_AND_ROLLBACK.md',
                                        'install.sh', 'start_kiosk.sh', 'setup_kiosk_service.sh', 'init_display.sh') or
                                (rel.startswith('scripts/') and rel.endswith(('.py', '.sh'))) or
@@ -4338,6 +4497,16 @@ def _apply_update_package(download_url, kiosk_token=None, kiosk_id=None):
                     staged[rel] = archive.read(member)
             if 'app.py' not in staged:
                 raise ValueError('Update package is missing app.py')
+            # Older allowlists silently omitted new root modules and left an
+            # application that could no longer import at the next restart.
+            program = ast.parse(staged['app.py'], filename='app.py')
+            imported = {node.module for node in ast.walk(program)
+                        if isinstance(node, ast.ImportFrom) and node.level == 0}
+            imported.update(alias.name for node in ast.walk(program)
+                            if isinstance(node, ast.Import) for alias in node.names)
+            for module in ('score_details', 'cfb_week'):
+                if module in imported and module + '.py' not in staged:
+                    raise ValueError('Update package is missing required module: ' + module + '.py')
             for rel, data in staged.items():
                 if rel.endswith('.py'):
                     ast.parse(data, filename=rel)
@@ -4494,7 +4663,7 @@ def update_package():
 
     version = _read_version()
     buf = io.BytesIO()
-    include_files = ['app.py', 'score_details.py', 'version.txt', 'requirements.txt', 'LICENSE', 'README.md',
+    include_files = ['app.py', 'score_details.py', 'cfb_week.py', 'version.txt', 'requirements.txt', 'LICENSE', 'README.md',
                      'QC_REPORT.md', 'INSTALL_AND_ROLLBACK.md', 'install.sh', 'start_kiosk.sh',
                      'setup_kiosk_service.sh', 'init_display.sh']
     include_dirs  = ['templates', os.path.join('static', 'css'),
@@ -4615,11 +4784,12 @@ def _cache_refresh_loop():
     while True:
         settings = get_settings()
         with _cache_lock:
-            requested = sorted((path, sorted(demand.get('windows', {})) if isinstance(demand, dict) else [])
+            requested = sorted((path, sorted(demand.get('windows', {})), bool(demand.get('complete_week')),
+                                min(demand.get('refreshes', {}) or {900: 0})) if isinstance(demand, dict) else (path, [], False, 900)
                                for path, demand in _requested_leagues.items())
         selection = json.dumps([settings.get('leagues'), settings.get('football_priority'),
                                 settings.get('date_windows'), settings.get('league_conferences'),
-                                settings.get('score_refresh'), settings.get('timezone'),
+                                settings.get('score_refresh'), settings.get('cfb_coverage'), settings.get('cfb_refresh_seconds'), settings.get('timezone'),
                                 _kiosk_server_unreachable, requested], sort_keys=True)
         now = time_module.monotonic()
         if selection != last_selection or now >= next_refresh:
@@ -4634,6 +4804,9 @@ def _cache_refresh_loop():
             with _cache_lock:
                 events = [event for slate in _espn_cache['raw_events'].values() for event in slate]
             delay = _events_refresh_interval(events, _refresh_preferences(settings)) if refreshed else 5
+            if (cfb_week.CFB in _espn_cache['raw_events'] and
+                    _complete_cfb_requested(settings)):
+                delay = min(delay, _cfb_refresh_interval(settings))
             # Inspect failure backoff regularly; individual URLs enforce their
             # own retry time without re-requesting successful cached endpoints.
             if _cache_errors:

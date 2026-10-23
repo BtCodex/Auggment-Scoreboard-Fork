@@ -91,13 +91,83 @@
         return formatter.format(new Date(date));
     }
     function gameKey(game) {
-        return `${game.league_path || ''}:${game.event_id || ''}:${game.away_name || game.away || ''}@${game.home_name || game.home || ''}`;
+        // ESPN IDs survive score/status/abbreviation corrections and kickoff
+        // changes. Matchup fallback is only for older/manual games without IDs.
+        const identity = game.event_id || `${game.away_name || game.away || ''}@${game.home_name || game.home || ''}`;
+        return `${game.league_path || ''}:${identity}`;
+    }
+    function normalizeCfbCoverage(value) {
+        return value === 'favorites' ? 'favorites' : 'all_power5';
+    }
+    function normalizeScorecardFilter(value) {
+        return ['live', 'upcoming', 'both'].includes(value) ? value : 'both';
+    }
+    function scorecardEmptyMessage(data) {
+        // This is explanatory scorecard content, not a reason to erase logos,
+        // specials, racing, golf or the independently populated sports ticker.
+        const message = data && data.scorecard_empty_message;
+        return data && Array.isArray(data.teams) && data.teams.length === 0 &&
+            typeof message === 'string' && message.trim() ? escapeHtml(message) : '';
+    }
+    function orderSlides(categories, playlist, coverage) {
+        const cfbPath = 'football/college-football';
+        const completeCfb = normalizeCfbCoverage(coverage) === 'all_power5';
+        const ordered = [], used = new Set();
+        const identity = slide => slide.dataset.slideKey || slide;
+        function append(slides) {
+            (slides || []).forEach(slide => {
+                const key = identity(slide);
+                if (!used.has(key)) { ordered.push(slide); used.add(key); }
+            });
+        }
+        const cfb = [...(categories[cfbPath] || [])].sort((left, right) => {
+            const timestamp = slide => {
+                const number = Date.parse(slide.dataset.kickoffIso || '');
+                return Number.isFinite(number) ? number : Infinity;
+            };
+            const timeDifference = timestamp(left) - timestamp(right);
+            if (Number.isFinite(timeDifference) && timeDifference !== 0) return timeDifference;
+            if (timestamp(left) !== timestamp(right)) return timestamp(left) < timestamp(right) ? -1 : 1;
+            const a = String(left.dataset.eventId || left.dataset.slideKey || '');
+            const b = String(right.dataset.eventId || right.dataset.slideKey || '');
+            return a < b ? -1 : a > b ? 1 : 0;
+        });
+        function appendCategory(path) {
+            append(completeCfb && path === cfbPath ? cfb : categories[path]);
+        }
+        if (Array.isArray(playlist) && playlist.length) {
+            playlist.forEach(item => {
+                if (!item || typeof item !== 'object') return;
+                if (item.type === 'logo' || item.type === 'local') appendCategory(item.type);
+                else if (item.type === 'team' && typeof item.key === 'string') {
+                    const split = item.key.lastIndexOf(':');
+                    const path = item.key.slice(0, split), abbreviation = item.key.slice(split + 1);
+                    // A complete week is one chronological block. Two favorite
+                    // teams in a matchup cannot duplicate or reorder its slide.
+                    if (completeCfb && path === cfbPath) appendCategory(path);
+                    else append((categories[path] || []).filter(slide => {
+                        try { return JSON.parse(slide.dataset.teamKeys || '[]').includes(`${path}:${abbreviation}`); }
+                        catch (_) { return false; }
+                    }));
+                } else if (item.type === 'driver' || item.type === 'golfer' || item.type === 'special') {
+                    const path = item.type === 'driver' ? item.series || '' : item.type === 'golfer' ? 'golf/pga' : 'specials';
+                    const match = item.type === 'special' ? item.uid : item.name;
+                    if (typeof match === 'string' && match) append((categories[path] || []).filter(slide => (slide.dataset.slideKey || '').includes(match)));
+                }
+            });
+            // Unlisted games remain visible, including an entirely unlisted CFB
+            // week. Append categories once rather than filling favorite slots.
+            Object.keys(categories).forEach(appendCategory);
+        } else {
+            ['logo', ...Object.keys(categories).filter(path => path !== 'logo')].forEach(appendCategory);
+        }
+        return ordered;
     }
     function duration(value, fallback, minimum, maximum) {
         const number = Number(value);
         return Number.isFinite(number) && number >= minimum ? Math.min(maximum, number) : fallback;
     }
-    const display = {escapeHtml, safeUrl, renderValue, normalizeMode, normalizeHeaderVisibility, headerState, topBarState, renderPeriodTable, collegeRank, dayKey, gameKey, duration};
+    const display = {escapeHtml, safeUrl, renderValue, normalizeMode, normalizeHeaderVisibility, headerState, topBarState, renderPeriodTable, collegeRank, dayKey, gameKey, normalizeCfbCoverage, normalizeScorecardFilter, scorecardEmptyMessage, orderSlides, duration};
     if (typeof module === 'object' && module.exports) module.exports = display;
     else root.ScoreboardDisplay = display;
 }(typeof window === 'undefined' ? globalThis : window));

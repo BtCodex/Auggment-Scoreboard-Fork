@@ -61,11 +61,11 @@ class ClockSettingsTests(unittest.TestCase):
         scoreboard.save_kiosk_config({'server_url': 'https://server.example'})
         post.return_value = Mock(ok=True)
         post.return_value.json.return_value = {'clock_format': '24h', 'timezone': 'UTC',
-                                              'teams': [{'name': 'retained'}]}
+                                              'teams': [{'name': 'retained', 'game_state': 'scheduled'}]}
         data = self.client.get('/api/data').get_json()
         self.assertEqual(data['clock_format'], 'hidden')
         self.assertEqual(data['timezone'], 'Pacific/Honolulu')
-        self.assertEqual(data['teams'], [{'name': 'retained'}])
+        self.assertEqual(data['teams'], [{'name': 'retained', 'game_state': 'scheduled'}])
 
 
 if __name__ == '__main__':

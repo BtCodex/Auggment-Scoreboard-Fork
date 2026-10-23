@@ -565,7 +565,7 @@
                     const vEventTime = t.is_pre ? scheduledStatus : t.status;
                     const vLiveDot = stateClass === 'live' ? '<span class="live-dot"></span>' : '';
                     addSlide(t.league_path || 'teams', `
-                        <div class="slide" data-slide-key="team:${key}" ${flashAttr}>
+                        <div class="slide" data-slide-key="team:${key}" data-league-path="${t.league_path || ''}" data-event-id="${t.event_id || ''}" data-kickoff-iso="${t.kickoff_iso || ''}" ${flashAttr}>
                             <div class="card ${stateClass} ${periodTable ? 'has-periods' : ''} ${liveTracker ? 'has-live-tracker' : ''} ${doFlash ? 'flash' : ''}" id="card-${key.replace(/[^a-z0-9]/gi,'_')}">
                                 ${stateClass === 'final' ? '<div class="final-badge">F</div>' : ''}
                                 <div class="league-tag">${t.league_label}</div>
@@ -602,7 +602,7 @@
                                 </div>
                             </div>
                         </div>
-                    `, [`${t.league_path}:${t.away_name}`, `${t.league_path}:${t.home_name}`]);
+                    `, [`${data.teams[teamIndex].league_path}:${data.teams[teamIndex].away_name}`, `${data.teams[teamIndex].league_path}:${data.teams[teamIndex].home_name}`]);
                 });
 
 
@@ -789,67 +789,13 @@
 
                 // ─── APPLY SLIDE PLAYLIST ORDER ───
                 const playlist = renderData.slide_playlist || [];
-                let orderedSlides;
-
-                if (playlist.length) {
-                    // Group collected slides by their category key
-                    orderedSlides = [];
-                    playlist.forEach(item => {
-                        if (!item.key && item.type !== 'logo' && item.type !== 'local') return;
-                        if (item.type === 'logo') {
-                            orderedSlides.push(...(catSlides['logo'] || []));
-                        } else if (item.type === 'team') {
-                            // key = "league_path:abbr" — match by full team key
-                            const path = item.key.slice(0, item.key.lastIndexOf(':'));
-                            const abbr = item.key.slice(item.key.lastIndexOf(':') + 1);
-                            (catSlides[path] || []).forEach(el => {
-                                if (JSON.parse(el.dataset.teamKeys || '[]').includes(`${path}:${abbr}`)) {
-                                    orderedSlides.push(el);
-                                }
-                            });
-                        } else if (item.type === 'driver') {
-                            const path = item.series || '';
-                            (catSlides[path] || []).forEach(el => {
-                                if (el.dataset.slideKey && el.dataset.slideKey.includes(item.name || '')) {
-                                    orderedSlides.push(el);
-                                }
-                            });
-                        } else if (item.type === 'golfer') {
-                            (catSlides['golf/pga'] || []).forEach(el => {
-                                if (el.dataset.slideKey && el.dataset.slideKey.includes(item.name || '')) {
-                                    orderedSlides.push(el);
-                                }
-                            });
-                        } else if (item.type === 'special') {
-                            (catSlides['specials'] || []).forEach(el => {
-                                // match by uid stored in slideKey or just add all in order
-                                if (el.dataset.slideKey && item.uid && el.dataset.slideKey.includes(item.uid)) {
-                                    orderedSlides.push(el);
-                                }
-                            });
-                        } else if (item.type === 'local') {
-                            orderedSlides.push(...(catSlides['local'] || []));
-                        }
-                    });
-                    // Append any slides not matched by playlist (fallback)
-                    const usedEls = new Set(orderedSlides);
-                    Object.values(catSlides).flat().forEach(el => {
-                        if (!usedEls.has(el)) orderedSlides.push(el);
-                    });
-                } else {
-                    // No playlist — use category order (logo first, then everything else)
-                    const orderedKeys = ['logo'];
-                    Object.keys(catSlides).forEach(k => { if (!orderedKeys.includes(k)) orderedKeys.push(k); });
-                    orderedSlides = [];
-                    orderedKeys.forEach(cat => { if (catSlides[cat]) orderedSlides.push(...catSlides[cat]); });
-                }
-
-                orderedSlides = [...new Set(orderedSlides)];
-                if (!orderedSlides.length) {
+                let orderedSlides = ScoreboardDisplay.orderSlides(catSlides, playlist, data.cfb_coverage);
+                const scorecardMessage = ScoreboardDisplay.scorecardEmptyMessage(data);
+                if (!orderedSlides.length || scorecardMessage) {
                     const empty = document.createElement('div');
                     empty.className = 'slide empty-slide';
                     empty.dataset.slideKey = 'empty';
-                    empty.innerHTML = '<div class="empty-state"><strong>GAMEDAY</strong><span>No games in the selected window</span></div>';
+                    empty.innerHTML = `<div class="empty-state"><strong>GAMEDAY</strong><span>${scorecardMessage || 'No games in the selected window'}</span></div>`;
                     orderedSlides.push(empty);
                 }
                 patchStage(orderedSlides);
@@ -930,8 +876,9 @@
                 expireLiveTrackers();
                 lastSuccessfulFetch = Date.now();
                 const connectionStatus = document.getElementById('connection-status');
-                connectionStatus.textContent = data.cache_stale ? 'Sports feed interrupted · Scores may be outdated' : '';
-                connectionStatus.hidden = !data.cache_stale;
+                const weekWarning = data.cfb_week && typeof data.cfb_week.warning === 'string' ? data.cfb_week.warning.trim() : '';
+                connectionStatus.textContent = weekWarning || (data.cache_stale ? 'Sports feed interrupted · Scores may be outdated' : '');
+                connectionStatus.hidden = !connectionStatus.textContent;
 
             } catch(e) {
                 expireLiveTrackers(true);

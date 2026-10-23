@@ -11,6 +11,7 @@ const assert = require('node:assert/strict');
   await context.request.post(base+'/login',{form:{username:'admin',password:'root'}});
   const save = async data => assert.equal((await context.request.post(base+'/api/settings',{data})).status(),200);
   await save({device_mode:'server',port:5002,display_mode:'hybrid',header_visibility:'auto',clock_format:'24h',
+   cfb_coverage:'favorites',scorecard_filter:'both',scorecard_include_completed:true,
    show_time_bar:true,show_title_bar:true,show_logo_slide:false,football_display:'both',slide_duration:3600});
   const before = await (await context.request.get(base+'/api/settings')).json();
   await page.setViewportSize({width:390,height:844});

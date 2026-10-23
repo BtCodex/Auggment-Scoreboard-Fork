@@ -55,8 +55,29 @@
             <option value="weekly">Automatic: CFB Saturday, NFL Sunday, both weekdays</option>
         </select>
         <p>Applies to scorecards and the ticker. Automatic mode switches at midnight in your selected timezone. Other sports and saved favorites are preserved. Enable the leagues below or use football priority to include their games.</p>
+        <label for="cfb_coverage">College football scorecard coverage</label>
+        <select id="cfb_coverage">
+            <option value="all_power5">All Power 5 Games</option>
+            <option value="favorites">Favorites &amp; priority matchups</option>
+        </select>
+        <p>All Power 5 Games includes every current-week SEC, Big Ten, Big 12, ACC and Pac-12 matchup, plus Notre Dame, even against other conferences or FCS teams. Games rotate once in kickoff order; favorites only add highlighting. This mode uses the official football week instead of the CFB date/conference filters or favorite-team playlist order. The Scorecard games selection below still controls which game states appear.</p>
+        <label for="cfb_refresh_seconds">All Power 5 refresh (seconds)</label>
+        <input type="number" id="cfb_refresh_seconds" min="30" max="900" step="1" value="180" required>
+        <p>Default: 180 seconds (three minutes). Existing refresh controls still apply to other sports and Favorites &amp; priority matchups. Live field-position widgets hide when their source becomes too old, even while the main score remains visible.</p>
         <label for="football_priority"><input type="checkbox" id="football_priority"> Prioritize Texas A&amp;M, SEC, Top 25 &amp; NFL</label>
-        <p>Includes college football and NFL without removing your favorites. College slides are ordered Texas A&amp;M first, then SEC, then other ranked teams. Custom playlist order remains available.</p>
+        <p>Includes college football and NFL without removing your favorites. In Favorites &amp; priority matchups, college slides use Texas A&amp;M, SEC and ranked-team priority with custom playlist order. All Power 5 Games keeps chronological college football order.</p>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Scorecard games</div>
+        <label for="scorecard_filter">Games shown on scorecards</label>
+        <select id="scorecard_filter">
+            <option value="both">Live and upcoming games</option>
+            <option value="live">Live games only</option>
+            <option value="upcoming">Upcoming games only</option>
+        </select>
+        <label for="scorecard_include_completed"><input type="checkbox" id="scorecard_include_completed"> Include completed games</label>
+        <p>Controls team scorecards only; the bottom sports ticker is unchanged. Live includes halftime and overtime. Completed games appear only when enabled. Favorites stay saved, and college football retains kickoff order within the selected games.</p>
     </div>
 
     <!-- ── Server Options (server mode only) ── -->
@@ -2017,6 +2038,10 @@
         document.getElementById('show_logo_slide').checked = currentSettings.show_logo_slide !== false;
         document.getElementById('football_priority').checked = currentSettings.football_priority !== false;
         document.getElementById('football_display').value = currentSettings.football_display || 'both';
+        document.getElementById('cfb_coverage').value = ScoreboardDisplay.normalizeCfbCoverage(currentSettings.cfb_coverage);
+        document.getElementById('cfb_refresh_seconds').value = currentSettings.cfb_refresh_seconds ?? 180;
+        document.getElementById('scorecard_filter').value = ScoreboardDisplay.normalizeScorecardFilter(currentSettings.scorecard_filter);
+        document.getElementById('scorecard_include_completed').checked = currentSettings.scorecard_include_completed === true;
         const tzSel = document.getElementById('timezone');
         [...tzSel.options].forEach(o => o.selected = (o.value === currentSettings.timezone));
 
@@ -2196,6 +2221,10 @@
             show_logo_slide: document.getElementById('show_logo_slide').checked,
             football_priority: document.getElementById('football_priority').checked,
             football_display: document.getElementById('football_display').value,
+            cfb_coverage: document.getElementById('cfb_coverage').value,
+            cfb_refresh_seconds: parseInt(document.getElementById('cfb_refresh_seconds').value, 10),
+            scorecard_filter: document.getElementById('scorecard_filter').value,
+            scorecard_include_completed: document.getElementById('scorecard_include_completed').checked,
             cast_orientation: document.querySelector('.orient-btn.active')?.dataset.val || 'auto',
             theme:          document.querySelector('.theme-btn.active')?.dataset.val || 'dark',
             leagues,

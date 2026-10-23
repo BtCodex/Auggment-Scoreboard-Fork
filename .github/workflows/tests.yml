@@ -27,8 +27,8 @@ jobs:
       - name: Python regressions and targeted lint
         run: |
           python -m unittest discover -s tests -v
-          python -m compileall -q app.py score_details.py scripts tests
-          ruff check --select F821,F822,F823 app.py score_details.py scripts tests
+          python -m compileall -q app.py score_details.py cfb_week.py scripts tests
+          ruff check --select F821,F822,F823 app.py score_details.py cfb_week.py scripts tests
       - name: JavaScript and startup checks
         run: |
           node tests/clock.test.js
@@ -36,6 +36,7 @@ jobs:
           node tests/rank_badges.test.js
           node tests/scorecard_details.test.js
           node tests/live_widgets.test.js
+          node tests/cfb_rotation.test.js
           node --check tests/browser_qc.cjs
           bash -n install.sh
           bash -n start_kiosk.sh
@@ -54,6 +55,7 @@ jobs:
           QC_CHROMIUM="$(command -v google-chrome || command -v chromium)" NODE_PATH=/tmp/scoreboard-qc/node_modules node tests/browser_qc.cjs
           QC_CHROMIUM="$(command -v google-chrome || command -v chromium)" NODE_PATH=/tmp/scoreboard-qc/node_modules node tests/browser_update.cjs
           QC_CHROMIUM="$(command -v google-chrome || command -v chromium)" NODE_PATH=/tmp/scoreboard-qc/node_modules node tests/browser_live.cjs
+          QC_CHROMIUM="$(command -v google-chrome || command -v chromium)" NODE_PATH=/tmp/scoreboard-qc/node_modules node tests/browser_cfb_week.cjs
       - name: Keep browser screenshots
         if: always() && matrix.python == '3.12'
         uses: actions/upload-artifact@v4

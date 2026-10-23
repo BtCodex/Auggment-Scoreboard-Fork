@@ -53,7 +53,7 @@ class QualityTests(unittest.TestCase):
             patcher = patch.object(scoreboard, name, value)
             patcher.start()
             self.addCleanup(patcher.stop)
-        scoreboard.save_settings({'football_priority': False, 'leagues': [CFB], 'city': '',
+        scoreboard.save_settings({'football_priority': False, 'cfb_coverage': 'favorites', 'scorecard_include_completed': True, 'leagues': [CFB], 'city': '',
                                   'color_mode': 'manual', 'teams': [CFB + ':TA&M']})
         self.client = scoreboard.app.test_client()
         with self.client.session_transaction() as session:
@@ -266,7 +266,7 @@ class QualityTests(unittest.TestCase):
         scoreboard.save_kiosk_config({'server_url': 'https://server.example'})
         with patch.object(scoreboard.requests, 'post') as post:
             post.return_value = Mock(ok=True)
-            post.return_value.json.return_value = {'teams': [{'home_name': 'TA&M'}], 'ticker_parts': []}
+            post.return_value.json.return_value = {'teams': [{'home_name': 'TA&M', 'game_state': 'scheduled'}], 'ticker_parts': []}
             self.assertEqual(self.client.get('/api/data').get_json()['teams'][0]['home_name'], 'TA&M')
             post.side_effect = scoreboard.requests.Timeout('offline')
             self.assertEqual(self.client.get('/api/data').get_json()['teams'][0]['home_name'], 'TA&M')

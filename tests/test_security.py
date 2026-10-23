@@ -57,6 +57,17 @@ class SecurityTests(unittest.TestCase):
         scoreboard.save_settings({'teams': ['saved favorite'],
                                   'update': {'source_url': 'https://reviewed.example/release'}})
 
+    def test_missing_runtime_modules_reject_update_before_any_file_changes(self):
+        self.prepare_update()
+        before = (self.root / 'app.py').read_bytes()
+        for program in ('import cfb_week\n', 'from score_details import ScoreDetailsCache\n'):
+            with self.subTest(program=program), self.package({'app.py': program, 'version.txt': '9.0'}):
+                ok, message = scoreboard._apply_update_package('https://reviewed.example/app.zip')
+                self.assertFalse(ok)
+                self.assertIn('missing required module', message)
+                self.assertEqual((self.root / 'app.py').read_bytes(), before)
+                self.assertEqual((self.root / 'version.txt').read_text(), '1.0\n')
+
     def test_settings_require_authentication_and_redact_all_credentials(self):
         self.write_legacy_credentials()
         self.assertEqual(scoreboard.app.test_client().get('/api/settings').status_code, 401)

@@ -49,7 +49,7 @@ class BackendImprovementTests(unittest.TestCase):
         network = patch.object(scoreboard.requests, 'get', side_effect=AssertionError('Unexpected real network request'))
         network.start()
         self.addCleanup(network.stop)
-        scoreboard.save_settings({'city': '', 'football_priority': False, 'leagues': [CFB],
+        scoreboard.save_settings({'city': '', 'football_priority': False, 'cfb_coverage': 'favorites', 'scorecard_include_completed': True, 'leagues': [CFB],
                                   'teams': [CFB + ':TA&M', CFB + ':ALA'], 'color_mode': 'manual'})
 
     def data(self, events):
@@ -66,7 +66,16 @@ class BackendImprovementTests(unittest.TestCase):
                  ('unexpected', '', 'unknown', 'pre')]
         for state, detail, normalized, color in cases:
             with self.subTest(state=state, detail=detail):
-                card = self.data([game(state=state, detail=detail)])['teams'][0]
+                item = game(state=state, detail=detail)
+                data = self.data([item])
+                self.assertEqual(scoreboard._event_status(item)[0], normalized)
+                if normalized in ('canceled', 'postponed', 'delayed', 'unknown'):
+                    self.assertEqual(data['teams'], [])
+                    ticker_game = data['ticker_parts'][0]['games'][0]
+                    self.assertEqual(ticker_game['color_state'], color)
+                    self.assertIsNone(ticker_game['winner'])
+                    continue
+                card = data['teams'][0]
                 self.assertEqual(card['game_state'], normalized)
                 self.assertEqual(card['color_state'], color)
                 if normalized in ('canceled', 'postponed', 'delayed', 'unknown'):
@@ -100,8 +109,8 @@ class BackendImprovementTests(unittest.TestCase):
         unknown = game('unknown')
         unknown.pop('status')
         data = self.data([malformed, unknown, game('good')])
-        self.assertEqual([card['event_id'] for card in data['teams']], ['unknown', 'good'])
-        self.assertEqual(data['teams'][0]['game_state'], 'unknown')
+        self.assertEqual([card['event_id'] for card in data['teams']], ['good'])
+        # Unknown status cannot be asserted live/upcoming, but must not drop a valid neighbor.
 
     def test_ranked_other_sport_never_overtakes_football(self):
         basketball = 'basketball/mens-college-basketball'

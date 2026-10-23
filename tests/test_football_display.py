@@ -22,7 +22,7 @@ def instant(value):
 
 
 def slate():
-    games = [{'event_id': event_id, 'league_path': league}
+    games = [{'event_id': event_id, 'league_path': league, 'game_state': 'scheduled'}
              for event_id, league in [('college', CFB), ('nfl', NFL), ('nba', NBA), ('mlb', MLB)]]
     return {'teams': games, 'ticker_parts': [
         {'label': 'College Football', 'games': [games[0]]},

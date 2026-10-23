@@ -282,7 +282,17 @@ class UpdateIntegrationTests(unittest.TestCase):
             with self.subTest(state=state, detail=detail):
                 app._espn_cache['raw_events'] = {CFB: [game(state=state, detail=detail,
                                                          period=period, lines=lines)]}
-                card = self.data()['teams'][0]
+                data = self.data()
+                if expected == 'canceled':
+                    self.assertEqual(data['teams'], [])
+                    self.assertEqual(data['ticker_parts'][0]['games'][0]['color_state'], 'pre')
+                    raw = app._espn_cache['raw_events'][CFB][0]
+                    home, away = raw['competitions'][0]['competitors']
+                    details = app._score_details.get(CFB, raw, home, away)
+                    self.assertEqual(details['home_record'], '6-2')
+                    self.assertIsNone(details['period_scores'])
+                    continue
+                card = data['teams'][0]
                 self.assertEqual(card['game_state'], expected)
                 self.assertEqual(card['home_record'], '6-2')
                 self.assertEqual(card['away_record'], '6-2')
