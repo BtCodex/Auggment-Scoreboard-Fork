@@ -6,6 +6,9 @@ Head: `improve/complete-weekly-cfb-rotation`
 
 [Compare and create the PR](https://github.com/BtCodex/Auggment-Scoreboard-Fork/compare/improve/live-game-trackers-and-bars...improve/complete-weekly-cfb-rotation?expand=1).
 
+Implementation `3c50eb3` and the ZIP are published. GitHub GraphQL and REST both
+returned Forbidden when creating the PR from this cloud; no PR is claimed to exist.
+
 ---
 
 CFB scorecards could omit unranked/unselected games, prioritize favorites ahead

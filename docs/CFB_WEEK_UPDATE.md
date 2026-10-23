@@ -6,6 +6,11 @@ Version **1.5.0-dev**, branch `improve/complete-weekly-cfb-rotation`, based on
 No Raspberry Pi, home-network device, working installation or OS was accessed or
 modified. This is a controlled physical-test candidate, not a 24/7 readiness claim.
 
+Implementation commit `3c50eb3` and the runtime ZIP are pushed. A fresh download
+from GitHub returned the expected 152,899 bytes and matching SHA-256. Automatic
+PR creation returned Forbidden from both GraphQL and REST; no PR was opened.
+[The prepared comparison and description](PULL_REQUEST_CFB.md) are available.
+
 ## Complete coverage and chronological rotation
 
 **All Power 5 Games** is the new default CFB coverage mode. Every current-week
